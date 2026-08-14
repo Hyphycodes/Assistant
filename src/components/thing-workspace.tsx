@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Copy, CornerDownRight, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { customFieldTypeValues, type CustomField, type Thing, type ThingItem } from "@/lib/domain";
+import { customFieldTypeValues, displayStatus, type CustomField, type Thing, type ThingItem } from "@/lib/domain";
 import { useApp } from "./app-provider";
 import { ThingEditor } from "./thing-editor";
 
@@ -73,7 +73,7 @@ export function ThingWorkspace({ thing, onMessage }: { thing: Thing; onMessage: 
     <section className="detail-section" id="subthings">
       <div className="detail-section-heading"><div><p className="eyebrow">Nested, never lost</p><h2>Subthings & relationships</h2></div><button className="button quiet" onClick={() => setNewChild(true)}><Plus size={14} />New subthing</button></div>
       {parent && <p className="relationship-line"><CornerDownRight size={14} />Part of <Link href={`/things/${parent.id}`}>{parent.title}</Link> <button onClick={() => void resultMessage(app.moveSubthing(thing.id, null))}>Promote</button></p>}
-      <div className="relationship-list">{children.map((child) => <Link href={`/things/${child.id}`} key={child.id}><span>{child.title}</span><small>{child.status}</small></Link>)}</div>
+      <div className="relationship-list">{children.map((child) => <Link href={`/things/${child.id}`} key={child.id}><span>{child.title}</span><small>{displayStatus(child.status)}</small></Link>)}</div>
       {!children.length && <p className="subtle-empty">No subthings yet.</p>}
       {thing.relatedThingIds?.length ? <div className="related-things"><strong>Related</strong>{thing.relatedThingIds.map((relatedId) => { const related = app.things.find((candidate) => candidate.id === relatedId); return related ? <Link href={`/things/${related.id}`} key={related.id}>{related.title}</Link> : null; })}</div> : null}
       <label className="field">Connect contact<select value="" onChange={(event) => { if (event.target.value) void resultMessage(app.attachContact(thing.id, event.target.value)); }}><option value="">Choose a person…</option>{app.contacts.filter((contact) => !contact.archived && !thing.contacts.some((linked) => linked.id === contact.id)).map((contact) => <option key={contact.id} value={contact.id}>{contact.name} · {contact.context}</option>)}</select></label>

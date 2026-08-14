@@ -120,13 +120,8 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .status-badge { display: inline-flex; width: max-content; align-items: center; gap: 6px; color: var(--paper-soft); font-size: 9px; font-weight: 700; white-space: nowrap; }
 .status-badge i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted); }
 .status-needs-you i { background: var(--ember); box-shadow: 0 0 0 3px var(--ember-wash); }
-.status-moving i, .status-ready i { background: var(--green); }
-.status-waiting i, .status-exploring i { background: var(--amber); }
+.status-open i { background: var(--green); }
 .status-done i { background: var(--faint); }
-.permission-badge { display: inline-flex; width: max-content; align-items: center; min-height: 19px; padding: 0 7px; border: 1px solid var(--line-light); border-radius: 4px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .08em; }
-.permission-approve { border-color: rgba(213,161,82,.32); color: var(--amber); }
-.permission-you { border-color: rgba(237,112,76,.3); color: var(--ember); }
-.permission-go { border-color: rgba(134,169,138,.3); color: var(--green); }
 .empty-state { display: grid; min-height: 190px; place-items: center; padding: 30px; border: 1px dashed var(--line-light); border-radius: var(--radius); text-align: center; }
 .empty-state svg { color: var(--ember); }
 .empty-state h3 { margin: 8px 0 0; font-family: var(--font-serif), serif; font-size: 24px; font-weight: 500; }

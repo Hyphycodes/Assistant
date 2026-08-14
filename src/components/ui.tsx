@@ -12,7 +12,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import type { Approval, Permission, Thing, ThingStatus } from "@/lib/domain";
+import { displayStatus, type Approval, type Thing, type ThingStatus } from "@/lib/domain";
 import { formatDateRange } from "@/lib/format";
 import { useApp } from "./app-provider";
 
@@ -40,20 +40,11 @@ export function PageHeader({
 }
 
 export function StatusBadge({ status }: { status: ThingStatus }) {
+  const label = displayStatus(status);
   return (
-    <span
-      className={`status-badge status-${status.toLowerCase().replace(/\s/g, "-")}`}
-    >
+    <span className={`status-badge status-${label.toLowerCase().replace(/\s/g, "-")}`}>
       <i />
-      {status}
-    </span>
-  );
-}
-
-export function PermissionBadge({ permission }: { permission: Permission }) {
-  return (
-    <span className={`permission-badge permission-${permission.toLowerCase()}`}>
-      {permission}
+      {label}
     </span>
   );
 }
@@ -145,7 +136,7 @@ export function ThingRow({
   onEdit?: () => void;
 }) {
   const { role, archiveThing, duplicateThing } = useApp();
-  const exceptional = thing.status === "Needs You" ? "Needs you" : thing.status === "Waiting" ? `Waiting${thing.waitingOn ? ` on ${thing.waitingOn}` : ""}` : thing.status === "Ready" ? "Ready" : undefined;
+  const exceptional = displayStatus(thing.status) === "Needs You" ? "Needs you" : undefined;
   return (
     <article className="thing-row calm-thing-row">
       <Link

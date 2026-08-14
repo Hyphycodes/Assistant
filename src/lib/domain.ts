@@ -22,9 +22,17 @@ export const statusValues = [
 
 export const permissionValues = ["GO", "APPROVE", "YOU"] as const;
 
+/**
+ * The stored pipeline keeps eight states so existing data and the Supabase
+ * schema stay valid, but the UI only ever shows three: Open, Needs You, Done.
+ * "Someday" is treated as a lightweight "later" flag rather than a state.
+ */
+export const displayStatusValues = ["Open", "Needs You", "Done"] as const;
+
 export type Category = (typeof categoryValues)[number];
 export type ThingStatus = (typeof statusValues)[number];
 export type Permission = (typeof permissionValues)[number];
+export type DisplayStatus = (typeof displayStatusValues)[number];
 export type Role = "owner" | "assistant";
 
 export const customFieldTypeValues = [
@@ -253,7 +261,7 @@ export const captureSchema = z.object({
   type: z.enum(["text", "link", "voice", "photo", "file"]),
 });
 
-export const thingFilterValues = ["active", "needs-you", "moving", "waiting", "ready", "someday", "done"] as const;
+export const thingFilterValues = ["active", "needs-you", "done", "someday"] as const;
 export type ThingFilter = (typeof thingFilterValues)[number];
 export const thingFilterSchema = z.enum(thingFilterValues);
 
@@ -313,6 +321,21 @@ export const approvalCreateSchema = z.object({
 
 export function parseThingFilter(value?: string): ThingFilter {
   return thingFilterSchema.catch("active").parse(value);
+}
+
+/** Collapses the stored pipeline into the three states the UI shows. */
+export function displayStatus(status: ThingStatus): DisplayStatus {
+  if (status === "Needs You") return "Needs You";
+  if (status === "Done") return "Done";
+  return "Open";
+}
+
+/** Keeps the stored status when it already reads as the chosen display state. */
+export function statusFromDisplay(display: DisplayStatus, current: ThingStatus): ThingStatus {
+  if (displayStatus(current) === display) return current;
+  if (display === "Needs You") return "Needs You";
+  if (display === "Done") return "Done";
+  return "Moving";
 }
 
 export function nextActionFor(thing: Thing, role: Role) {

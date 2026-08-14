@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle, RotateCcw, Save, X } from "lucide-react";
 import { useApp } from "./app-provider";
 import {
-  categoryValues,
-  permissionValues,
-  statusValues,
+  displayStatus,
+  displayStatusValues,
+  statusFromDisplay,
   thingEditSchema,
+  type DisplayStatus,
   type Thing,
   type ThingEditInput,
 } from "@/lib/domain";
@@ -120,7 +121,7 @@ export function ThingEditor({
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close editor"><X /></button>
         </header>
         <div className="editor-scroll">
-          {ownerLocked && <p className="permission-note">Maria can update operational fields here. Jerry controls the title, category, and permission.</p>}
+          {ownerLocked && <p className="permission-note">Maria can update operational fields here. Jerry controls the title.</p>}
           <fieldset>
             <legend>Core brief</legend>
             <label className="field wide">Title<input autoFocus value={values.title} disabled={ownerLocked} onChange={(event) => set("title", event.target.value)} required /></label>
@@ -129,9 +130,7 @@ export function ThingEditor({
             <label className="field wide">Snapshot<textarea value={values.summary} onChange={(event) => set("summary", event.target.value)} rows={4} /></label>
             <label className="field wide">Owner next action<input value={values.ownerNextAction} onChange={(event) => set("ownerNextAction", event.target.value)} /></label>
             <label className="field wide">Assistant next action<input value={values.assistantNextAction} onChange={(event) => set("assistantNextAction", event.target.value)} /></label>
-            <label className="field">Category<select value={values.category} disabled={ownerLocked} onChange={(event) => set("category", event.target.value as ThingEditInput["category"])}>{categoryValues.map((value) => <option key={value}>{value}</option>)}</select></label>
-            <label className="field">Status<select value={values.status} onChange={(event) => set("status", event.target.value as ThingEditInput["status"])}>{statusValues.map((value) => <option key={value}>{value}</option>)}</select></label>
-            <label className="field">Permission<select value={values.permission} disabled={ownerLocked} onChange={(event) => set("permission", event.target.value as ThingEditInput["permission"])}>{permissionValues.map((value) => <option key={value}>{value}</option>)}</select></label>
+            <label className="field">Status<select value={displayStatus(values.status)} onChange={(event) => set("status", statusFromDisplay(event.target.value as DisplayStatus, values.status))}>{displayStatusValues.map((value) => <option key={value}>{value}</option>)}</select></label>
             <label className="field">Location<input value={values.location ?? ""} onChange={(event) => set("location", event.target.value)} /></label>
             <label className="field">Owner<select value={values.owner} onChange={(event) => set("owner", event.target.value as "Jerry" | "Maria")}><option>Jerry</option><option>Maria</option></select></label>
             <label className="field">Priority<select value={values.priority} onChange={(event) => set("priority", event.target.value as "low" | "normal" | "high")}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option></select></label>
@@ -143,6 +142,7 @@ export function ThingEditor({
             <legend>Operating signals</legend>
             <label className="check-field"><input type="checkbox" checked={values.keepMoving} onChange={(event) => set("keepMoving", event.target.checked)} />Keep this moving</label>
             <label className="check-field"><input type="checkbox" checked={values.surpriseMe} onChange={(event) => set("surpriseMe", event.target.checked)} />Surprise me</label>
+            <label className="check-field"><input type="checkbox" checked={values.status === "Someday"} onChange={(event) => set("status", event.target.checked ? "Someday" : "Moving")} />Save for later</label>
           </fieldset>
           <fieldset>
             <legend>Context date</legend>

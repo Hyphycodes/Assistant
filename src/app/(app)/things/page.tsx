@@ -14,7 +14,6 @@ export default async function ThingsPage({
     <ThingsIndex
       initialFilter={parseThingFilter(single("filter"))}
       initialQuery={single("q") ?? ""}
-      initialCategory={single("category") ?? "All"}
       initialSort={single("sort") ?? "recent"}
     />
   );
