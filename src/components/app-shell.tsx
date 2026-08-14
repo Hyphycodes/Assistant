@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Archive, BookOpenText, Brain, CalendarDays, ChevronDown, CircleUserRound, ContactRound, Home, Inbox, ListTodo, Menu, MoreHorizontal, Plus, Search, Settings, Sparkles, X } from "lucide-react";
+import { Archive, CalendarDays, ChevronDown, CircleUserRound, ContactRound, Home, Inbox, ListTodo, Menu, MoreHorizontal, Plus, Search, Settings, Sparkles, X } from "lucide-react";
 import type { Role } from "@/lib/domain";
 import { AppProvider, useApp } from "./app-provider";
 
@@ -21,23 +21,22 @@ const assistantPrimary = [
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
 
+// Templates and tracked Preferences still exist as routes, but neither is
+// something Jerry or Maria would open in a normal week, so neither is linked.
 const secondary = [
   { href: "/search", label: "Search", icon: Search },
   { href: "/contacts", label: "Contacts", icon: ContactRound },
-  { href: "/templates", label: "Templates", icon: BookOpenText },
-  { href: "/preferences", label: "Preferences", icon: Brain },
   { href: "/archive", label: "Archive", icon: Archive },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function ShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { role, inbox, activities, things } = useApp();
+  const { role, inbox, activities } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   const reviewCount = inbox.filter((item) => item.status === "needs_review").length;
   const primary = role === "owner" ? ownerPrimary : assistantPrimary;
   const moved = new Set(activities.slice(0, 8).map((item) => item.thingId)).size;
-  const waiting = things.filter((thing) => !thing.archived && thing.status === "Waiting").length;
   const active = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return <div className="app-frame calm-shell">
@@ -47,7 +46,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
       <nav aria-label="Primary navigation" className="desktop-nav">
         {primary.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`nav-link ${active(href) ? "active" : ""}`} aria-current={active(href) ? "page" : undefined}><Icon size={17} strokeWidth={1.7} /><span>{label}</span>{label === "Inbox" && reviewCount > 0 ? <span className="nav-count">{reviewCount}</span> : null}</Link>)}
       </nav>
-      {role === "owner" ? <Link href="/assistant" className="maria-summary"><span className="avatar avatar-assistant">M</span><span><strong>Maria</strong><small>{moved} moved · {waiting} waiting</small></span></Link> : null}
+      {role === "owner" ? <Link href="/assistant" className="maria-summary"><span className="avatar avatar-assistant">M</span><span><strong>Maria</strong><small>{moved} moved today</small></span></Link> : null}
       <div className="sidebar-bottom">
         <details className="more-navigation"><summary className="nav-link"><MoreHorizontal size={18} /><span>More</span><ChevronDown size={14} /></summary><div className="more-popover">{secondary.map(({ href, label, icon: Icon }) => <Link href={href} key={href}><Icon size={16} />{label}</Link>)}</div></details>
         <details className="profile-menu"><summary><span className={`avatar ${role === "owner" ? "avatar-owner" : "avatar-assistant"}`}>{role === "owner" ? "J" : "M"}</span><span><strong>{role === "owner" ? "Jerry" : "Maria"}</strong><small>{role === "owner" ? "Owner" : "Assistant"}</small></span><ChevronDown size={15} /></summary><div className="profile-popover"><p>Hyphy HQ</p><form action="/api/auth/sign-out" method="post"><button type="submit">Sign out</button></form></div></details>

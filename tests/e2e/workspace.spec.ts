@@ -9,7 +9,7 @@ test.beforeEach(async ({ context, page }) => {
 });
 
 test("owner can resolve a decision and a confident capture files itself", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   await expect(page.getByRole("heading", { name: /Good .* Jerry/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
   await expect(page.getByText("Ideas to revisit")).toHaveCount(0);
@@ -26,7 +26,7 @@ test("owner can resolve a decision and a confident capture files itself", async 
 });
 
 test("Things keeps two calm views, deep links filters, and persists edits", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   await page.waitForURL("/");
   await page.goto("/things?filter=needs-you&sort=blocked");
 
@@ -51,7 +51,7 @@ test("Things keeps two calm views, deep links filters, and persists edits", asyn
 });
 
 test("assistant work is attributable and owner resolution is rejected by the server", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Maria" }).click();
+  await page.getByRole("button", { name: "Maria", exact: false }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Do next" })).toBeVisible();
 
@@ -70,7 +70,7 @@ test("assistant work is attributable and owner resolution is rejected by the ser
 });
 
 test("assistant gets a work-first Today view and cannot resolve owner decisions", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Maria" }).click();
+  await page.getByRole("button", { name: "Maria", exact: false }).click();
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Waiting" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Needs Jerry" })).toBeVisible();
@@ -83,7 +83,7 @@ test("assistant gets a work-first Today view and cannot resolve owner decisions"
 
 test("primary mobile navigation reaches the calm mental-model areas", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only navigation check");
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   const destinations = [
     { link: "Things", heading: "Things" },
     { link: "Capture", heading: "Inbox" },
@@ -98,7 +98,7 @@ test("primary mobile navigation reaches the calm mental-model areas", async ({ p
 });
 
 test("advanced Thing capabilities stay preserved behind Manage", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
 
@@ -131,7 +131,7 @@ test("advanced Thing capabilities stay preserved behind Manage", async ({ page }
 });
 
 test("option ordering and management stay hidden until requested", async ({ page }) => {
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
 
@@ -147,7 +147,7 @@ test("option ordering and management stay hidden until requested", async ({ page
 
 test("mobile detail keeps the work surface visible and management collapsed", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only content order check");
-  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.getByRole("button", { name: "Jerry", exact: false }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
 
