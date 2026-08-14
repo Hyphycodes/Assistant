@@ -154,7 +154,15 @@ export function applyWorkspaceCommand(source: AppState, role: Role, action: stri
       const input = parse(childSchema, payload); const thing = thingById(state, input.thingId); const index = thing.customFields.findIndex((field) => field.id === input.childId); if (index < 0) throw new Error("Custom field not found."); const [field] = thing.customFields.splice(index, 1); log(state, role, at, thing.id, `${who} removed the ${field.label} field.`, "custom_field.removed", "custom_field", field.id); return { state, message: "Custom field removed." };
     }
     case "add_note": {
-      const input = parse(noteSchema, payload); const thing = thingById(state, input.thingId); const noteId = id(); thing.notes.unshift({ id: noteId, author: who, body: input.body, at }); log(state, role, at, thing.id, `${who} added a note.`, "note.created", "note", noteId); return { state, message: "Note added.", id: noteId };
+      const input = parse(noteSchema, payload); const thing = thingById(state, input.thingId); const noteId = id();
+      if (input.itemId) {
+        const item = thing.items.find((candidate) => candidate.id === input.itemId && !candidate.archived);
+        if (!item) throw new Error("Plan item not found.");
+        item.notes = [{ id: noteId, author: who, body: input.body, at }, ...(item.notes ?? [])];
+        log(state, role, at, thing.id, `${who} added a note to ${item.title}.`, "item.note_created", "item", item.id);
+        return { state, message: "Note added to this item.", id: noteId };
+      }
+      thing.notes.unshift({ id: noteId, author: who, body: input.body, at }); log(state, role, at, thing.id, `${who} added a note.`, "note.created", "note", noteId); return { state, message: "Note added.", id: noteId };
     }
     case "update_note": {
       const input = parse(z.object({ thingId: identifier, noteId: identifier, body: z.string().trim().min(1).max(4000) }), payload); const thing = thingById(state, input.thingId); const note = thing.notes.find((candidate) => candidate.id === input.noteId); if (!note || note.author !== who) throw new Error("You can only edit your own note."); const before = note.body; note.body = input.body; note.at = at; log(state, role, at, thing.id, `${who} refined a note.`, "note.updated", "note", note.id, before, note.body); return { state, message: "Note updated." };
@@ -164,7 +172,7 @@ export function applyWorkspaceCommand(source: AppState, role: Role, action: stri
     }
     case "add_link": case "update_link": {
       const schema = action === "add_link" ? linkSchema : linkSchema.extend({ linkId: identifier }); const input = parse(schema, payload); const thing = thingById(state, input.thingId);
-      if (action === "add_link") { const linkId = id(); thing.links.unshift({ id: linkId, title: input.title, url: input.url }); log(state, role, at, thing.id, `${who} added a source link.`, "link.created", "link", linkId); return { state, message: "Link added.", id: linkId }; }
+      if (action === "add_link") { const linkId = id(); const item = input.itemId ? thing.items.find((candidate) => candidate.id === input.itemId && !candidate.archived) : undefined; if (input.itemId && !item) throw new Error("Plan item not found."); thing.links.unshift({ id: linkId, title: input.title, url: input.url, itemId: input.itemId }); log(state, role, at, thing.id, item ? `${who} added a link to ${item.title}.` : `${who} added a source link.`, "link.created", item ? "item" : "link", item?.id ?? linkId); return { state, message: item ? "Link added to this item." : "Link added.", id: linkId }; }
       const linkId = (input as typeof input & { linkId: string }).linkId; const link = thing.links.find((candidate) => candidate.id === linkId); if (!link) throw new Error("Link not found."); const before = structuredClone(link); Object.assign(link, { title: input.title, url: input.url }); log(state, role, at, thing.id, `${who} updated a source link.`, "link.updated", "link", link.id, before, link); return { state, message: "Link updated." };
     }
     case "remove_link": {
@@ -172,7 +180,7 @@ export function applyWorkspaceCommand(source: AppState, role: Role, action: stri
     }
     case "add_option": case "update_option": {
       const schema = action === "add_option" ? optionSchema : optionSchema.extend({ optionId: identifier, status: z.string() }); const input = parse(schema, payload); const thing = thingById(state, input.thingId);
-      if (action === "add_option") { const optionId = id(); thing.options.unshift({ id: optionId, name: input.name, description: input.description, price: input.price, source: input.source, recommendation: input.recommendation, tradeoff: input.tradeoff, status: "considering" }); log(state, role, at, thing.id, `${who} added ${input.name} as an option.`, "product.created", "product", optionId); return { state, message: "Option added.", id: optionId }; }
+      if (action === "add_option") { const optionId = id(); const item = input.itemId ? thing.items.find((candidate) => candidate.id === input.itemId && !candidate.archived) : undefined; if (input.itemId && !item) throw new Error("Plan item not found."); thing.options.unshift({ id: optionId, itemId: input.itemId, name: input.name, description: input.description, price: input.price, source: input.source, recommendation: input.recommendation, tradeoff: input.tradeoff, status: "considering" }); if (item) item.recentSummary = `${who} added an option · today`; log(state, role, at, thing.id, item ? `${who} added ${input.name} to ${item.title}.` : `${who} added ${input.name} as an option.`, "product.created", item ? "item" : "product", item?.id ?? optionId); return { state, message: item ? "Option added inside the plan." : "Option added.", id: optionId }; }
       const optionId = (input as typeof input & { optionId: string }).optionId; const option = thing.options.find((candidate) => candidate.id === optionId); if (!option) throw new Error("Option not found."); const before = structuredClone(option); Object.assign(option, input); log(state, role, at, thing.id, `${who} updated ${option.name}.`, "product.updated", "product", option.id, before, option); return { state, message: "Option updated." };
     }
     case "remove_option": {

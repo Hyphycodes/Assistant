@@ -27,6 +27,7 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
   const [alternativeB, setAlternativeB] = useState("");
   const [amount, setAmount] = useState("");
   const [urgency, setUrgency] = useState<"low" | "normal" | "high">("normal");
+  const [targetItemId, setTargetItemId] = useState(thing.items.find((item) => !item.archived)?.id ?? "");
   const [date, setDate] = useState(new Date(new Date(app.renderedAt).getTime() + 3 * 86_400_000).toISOString().slice(0, 16));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -45,9 +46,9 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
       : action === "follow-up"
         ? await app.addFollowUp({ thingId: thing.id, waitingOn: primary, date: new Date(date).toISOString(), channel: secondary || undefined, note: tertiary || undefined, state: "drafted" })
         : action === "link"
-          ? await app.addLink(thing.id, primary, secondary)
+          ? await app.addLink(thing.id, primary, secondary, targetItemId || undefined)
           : action === "option"
-            ? await app.addOption(thing.id, { name: primary, description: secondary, recommendation: tertiary || undefined })
+            ? await app.addOption(thing.id, { name: primary, description: secondary, recommendation: tertiary || undefined }, targetItemId || undefined)
             : await app.createApproval({ thingId: thing.id, title: primary, recommendation: secondary, whyNow: tertiary || "This decision unlocks the next useful move.", context: thing.summary, actionLabel: "Approve", meta: "Prepared in the assistant workbench", permission: thing.permission === "YOU" ? "YOU" : "APPROVE", options: [{ label: secondary, description: "Maria’s recommended direction" }, ...[alternativeA, alternativeB].filter(Boolean).map((label) => ({ label }))], amount: amount ? Number(amount) : undefined, urgency });
     setPending(false);
     if (!result.ok) { setError(result.message); return; }
@@ -58,6 +59,7 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
     <form onSubmit={submit}>
       <header><div><p className="eyebrow">{thing.title}</p><h2 id="action-dialog-title">{labels[action]}</h2></div><button className="icon-button" type="button" onClick={onClose} aria-label="Close"><X /></button></header>
       <div className="action-dialog-fields">
+        {(["link", "option"] as WorkbenchAction[]).includes(action) && thing.items.some((item) => !item.archived) ? <label>Place inside<select value={targetItemId} onChange={(event) => setTargetItemId(event.target.value)}><option value="">Thing-level context</option>{thing.items.filter((item) => !item.archived).map((item) => <option key={item.id} value={item.id}>{thing.sections.find((section) => section.id === item.sectionId)?.title ?? "Plan"} · {item.title}</option>)}</select></label> : null}
         <label>{action === "movement" ? "What changed" : action === "follow-up" ? "Waiting on" : action === "link" ? "Link title" : action === "option" ? "Option name" : "Decision needed"}<input autoFocus value={primary} onChange={(event) => setPrimary(event.target.value)} required /></label>
         {action === "follow-up" && <label>Follow-up date<input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} required /></label>}
         <label>{action === "movement" ? "New assistant next action" : action === "follow-up" ? "Channel" : action === "link" ? "URL" : action === "option" ? "Description" : "Recommendation"}<input type={action === "link" ? "url" : "text"} value={secondary} onChange={(event) => setSecondary(event.target.value)} required={action === "link" || action === "approval"} placeholder={action === "link" ? "https://" : undefined} /></label>

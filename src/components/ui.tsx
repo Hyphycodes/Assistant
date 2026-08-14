@@ -12,8 +12,9 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { displayStatus, type Approval, type Thing, type ThingStatus } from "@/lib/domain";
+import type { Approval, Permission, Thing, ThingStatus } from "@/lib/domain";
 import { formatDateRange } from "@/lib/format";
+import { conciseActivity, latestThingActivity, progressSummary, relativeTime } from "@/lib/plan";
 import { useApp } from "./app-provider";
 
 export function PageHeader({
@@ -40,11 +41,20 @@ export function PageHeader({
 }
 
 export function StatusBadge({ status }: { status: ThingStatus }) {
-  const label = displayStatus(status);
   return (
-    <span className={`status-badge status-${label.toLowerCase().replace(/\s/g, "-")}`}>
+    <span
+      className={`status-badge status-${status.toLowerCase().replace(/\s/g, "-")}`}
+    >
       <i />
-      {label}
+      {status}
+    </span>
+  );
+}
+
+export function PermissionBadge({ permission }: { permission: Permission }) {
+  return (
+    <span className={`permission-badge permission-${permission.toLowerCase()}`}>
+      {permission}
     </span>
   );
 }
@@ -135,8 +145,9 @@ export function ThingRow({
   href?: string;
   onEdit?: () => void;
 }) {
-  const { role, archiveThing, duplicateThing } = useApp();
-  const exceptional = displayStatus(thing.status) === "Needs You" ? "Needs you" : undefined;
+  const { role, archiveThing, duplicateThing, setThingStatus, activities, renderedAt } = useApp();
+  const exceptional = thing.status === "Needs You" ? "Needs you" : thing.status === "Waiting" ? `Waiting${thing.waitingOn ? ` on ${thing.waitingOn}` : ""}` : thing.status === "Ready" ? "Ready" : undefined;
+  const recent = latestThingActivity(activities, thing.id);
   return (
     <article className="thing-row calm-thing-row">
       <Link
@@ -145,13 +156,14 @@ export function ThingRow({
         aria-label={`Open ${thing.title}`}
       />
       <div className="thing-row-main">
-        <div className="thing-row-title"><h2>{thing.title}</h2>{exceptional ? <em>{exceptional}</em> : null}{thing.keepMoving ? <Flame size={13} aria-label="Keep this moving" /> : null}{thing.surpriseMe ? <Sparkles size={13} aria-label="Surprise me" /> : null}</div>
-        <p>{role === "owner" ? (thing.ownerNextAction || thing.summary) : (thing.assistantNextAction || thing.summary)}</p>
+        <div className="thing-row-title"><h2>{thing.title}</h2>{exceptional ? <em>{exceptional}</em> : null}</div>
+        <p className="thing-progress">{progressSummary(thing)}</p>
+        {recent ? <p className="thing-recent"><i />{recent.actor === "Maria" ? "Maria · " : ""}{conciseActivity(recent)} · {relativeTime(recent.at, renderedAt)}</p> : <p>{role === "owner" ? thing.ownerNextAction : thing.assistantNextAction}</p>}
       </div>
       <div className="thing-row-meta">
         {thing.dates[0] ? <span>{formatDateRange(thing.dates[0].start, thing.dates[0].end, thing.dates[0].precision)}</span> : null}
       </div>
-      <details className="thing-row-more"><summary aria-label={`More actions for ${thing.title}`}><MoreHorizontal size={17} /></summary><div>{onEdit ? <button onClick={onEdit}><Pencil size={13} />Edit</button> : null}<button onClick={() => void duplicateThing(thing.id)}><Copy size={13} />Duplicate</button>{role === "owner" && !thing.archived ? <button onClick={() => void archiveThing(thing.id)}><Trash2 size={13} />Archive</button> : null}</div></details>
+      <details className="thing-row-more"><summary aria-label={`More actions for ${thing.title}`}><MoreHorizontal size={17} /></summary><div>{onEdit ? <button onClick={onEdit}><Pencil size={13} />Edit</button> : null}<button onClick={() => void duplicateThing(thing.id)}><Copy size={13} />Duplicate</button>{!thing.archived && thing.status !== "Someday" ? <button onClick={() => void setThingStatus(thing.id, "Someday")}>Move to Later</button> : null}{role === "owner" && !thing.archived ? <button onClick={() => void archiveThing(thing.id)}><Trash2 size={13} />Archive</button> : null}</div></details>
       <ArrowRight className="thing-row-arrow" size={17} />
     </article>
   );

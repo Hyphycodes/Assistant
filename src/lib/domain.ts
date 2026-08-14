@@ -53,6 +53,7 @@ export type ThingDate = {
 
 export type Option = {
   id: string;
+  itemId?: string;
   name: string;
   description: string;
   price?: string;
@@ -94,6 +95,15 @@ export type ThingItem = {
   contactId?: string;
   linkedThingId?: string;
   url?: string;
+  location?: string;
+  price?: string;
+  image?: string;
+  recommendation?: string;
+  recentSummary?: string;
+  needsYou?: boolean;
+  primaryAction?: string;
+  links?: { id: string; title: string; url: string }[];
+  notes?: { id: string; author: "Jerry" | "Maria"; body: string; at: string }[];
   position: number;
   archived?: boolean;
 };
@@ -176,7 +186,7 @@ export type Thing = {
   contacts: Contact[];
   options: Option[];
   notes: { id: string; author: "Jerry" | "Maria"; body: string; at: string }[];
-  links: { id: string; title: string; url: string }[];
+  links: { id: string; title: string; url: string; itemId?: string }[];
   followUps: { id: string; waitingOn: string; date: string; channel?: string; note?: string; state: "drafted" | "attempted" }[];
   waiting?: { type: "owner" | "assistant" | "contact" | "date" | "delivery"; label: string; contactId?: string; followUpAt?: string; note?: string };
   sections: ThingSection[];
@@ -295,7 +305,7 @@ export const thingEditSchema = z.object({
 
 export type ThingEditInput = z.infer<typeof thingEditSchema>;
 
-export const noteSchema = z.object({ thingId: z.string().min(1), body: z.string().trim().min(1).max(4000) });
+export const noteSchema = z.object({ thingId: z.string().min(1), itemId: z.string().min(1).optional(), body: z.string().trim().min(1).max(4000) });
 export const movementSchema = z.object({
   thingId: z.string().min(1),
   update: z.string().trim().min(2).max(500),
@@ -307,9 +317,9 @@ export const followUpSchema = z.object({
   date: z.string().datetime({ offset: true }), channel: z.string().trim().max(60).optional(),
   note: z.string().trim().max(500).optional(), state: z.enum(["drafted", "attempted"]),
 });
-export const linkSchema = z.object({ thingId: z.string().min(1), title: z.string().trim().min(1).max(160), url: z.url() });
+export const linkSchema = z.object({ thingId: z.string().min(1), itemId: z.string().min(1).optional(), title: z.string().trim().min(1).max(160), url: z.url() });
 export const optionSchema = z.object({
-  thingId: z.string().min(1), name: z.string().trim().min(1).max(160), description: z.string().trim().max(600),
+  thingId: z.string().min(1), itemId: z.string().min(1).optional(), name: z.string().trim().min(1).max(160), description: z.string().trim().max(600),
   price: z.string().trim().max(40).optional(), source: z.union([z.url(), z.literal("")]).optional(),
   recommendation: z.string().trim().max(500).optional(), tradeoff: z.string().trim().max(500).optional(),
 });

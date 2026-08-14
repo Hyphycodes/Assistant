@@ -39,7 +39,9 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   const moved = new Set(activities.slice(0, 8).map((item) => item.thingId)).size;
   const active = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  return <div className="app-frame calm-shell">
+  const thingRoute = /^\/things\/[^/]+/.test(pathname);
+
+  return <div className={`app-frame calm-shell ${thingRoute ? "thing-route" : ""}`}>
     <aside className="sidebar">
       <Link href={role === "owner" ? "/" : "/assistant"} className="brand-lockup sidebar-brand"><span className="brand-glyph">H</span><span>Hyphy HQ</span></Link>
       <Link href="/search" className="sidebar-search"><Search size={15} /><span>Search</span><kbd>⌘K</kbd></Link>
