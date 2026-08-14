@@ -2,733 +2,80 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  CalendarDays,
-  Check,
-  ChevronDown,
-  CircleAlert,
-  Clock3,
-  Link2,
-  MapPin,
-  MessageCircle,
-  MoreHorizontal,
-  Pencil,
-  Plus,
-  Send,
-  Trash2,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, Copy, Link2, MapPin, MoreHorizontal, Pencil, Plus, Send, Trash2, X } from "lucide-react";
 import { useApp } from "./app-provider";
 import { ThingEditor } from "./thing-editor";
 import { ThingWorkspace } from "./thing-workspace";
-import {
-  ApprovalCard,
-  EmptyState,
-  PermissionBadge,
-  StatusBadge,
-  Toggle,
-} from "./ui";
-import { statusValues, type ThingStatus } from "@/lib/domain";
+import { ApprovalCard, EmptyState } from "./ui";
 import { formatDate, formatDateRange } from "@/lib/format";
+import type { Option, Thing, ThingItem } from "@/lib/domain";
 
-export function ThingDetail({
-  id,
-  returnTo = "/things",
-}: {
-  id: string;
-  returnTo?: string;
-}) {
-  const app = useApp();
-  const { things, approvals, activities, role } = app;
+type AddKind = "note" | "action" | "product" | "person" | "link";
+
+export function ThingDetail({ id, returnTo = "/things" }: { id: string; returnTo?: string }) {
+  const app = useApp(); const { things, approvals, activities, role } = app;
   const thing = things.find((item) => item.id === id);
+  const [message, setMessage] = useState(""); const [editingThing, setEditingThing] = useState(false); const [manageOpen, setManageOpen] = useState(false); const [activityOpen, setActivityOpen] = useState(false);
+  const [addSectionId, setAddSectionId] = useState<string | null | undefined>(undefined); const [addKind, setAddKind] = useState<AddKind>("note"); const [addTitle, setAddTitle] = useState(""); const [addBody, setAddBody] = useState("");
   const [note, setNote] = useState("");
-  const [message, setMessage] = useState("");
-  const [showStatus, setShowStatus] = useState(false);
-  const [editingThing, setEditingThing] = useState(false);
-  const [editingNote, setEditingNote] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const [linkOpen, setLinkOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<string | null>(null);
-  const [linkTitle, setLinkTitle] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [optionOpen, setOptionOpen] = useState(false);
-  const [editingOption, setEditingOption] = useState<string | null>(null);
-  const [optionName, setOptionName] = useState("");
-  const [optionDescription, setOptionDescription] = useState("");
-  const thingApprovals = approvals.filter(
-    (approval) => approval.thingId === id && approval.status === "pending",
-  );
-  const thingActivity = useMemo(
-    () => activities.filter((activity) => activity.thingId === id),
-    [activities, id],
-  );
+  const pending = approvals.filter((approval) => approval.thingId === id && approval.status === "pending");
+  const activity = useMemo(() => activities.filter((entry) => entry.thingId === id), [activities, id]);
 
-  if (!thing)
-    return (
-      <div className="page">
-        <EmptyState
-          title="This Thing isn’t here."
-          body="It may have moved into the archive or been removed from this demo."
-          action={
-            <Link href="/things" className="button quiet">
-              Back to Things
-            </Link>
-          }
-        />
-      </div>
-    );
-  const ownerName = role === "owner" ? "Jerry" : "Maria";
+  if (!thing) return <div className="page"><EmptyState title="This Thing isn’t here." body="It may have moved into the archive." action={<Link href="/things" className="button quiet">Back to Things</Link>} /></div>;
+  const exceptional = thing.status === "Needs You" ? "Needs you" : thing.status === "Waiting" ? `Waiting${thing.waitingOn ? ` on ${thing.waitingOn}` : ""}` : thing.status === "Ready" ? "Ready" : null;
 
-  async function submitNote(event: React.FormEvent) {
-    event.preventDefault();
-    if (!note.trim()) return;
-    const result = await app.addNote(id, note.trim());
-    setMessage(result.message);
-    if (result.ok) setNote("");
-  }
+  async function addContent(event: React.FormEvent) { event.preventDefault(); if (!addTitle.trim()) return; const result = addKind === "product" ? await app.addOption(id, { name: addTitle.trim(), description: addBody.trim() }) : await app.addItem(id, { sectionId: addSectionId ?? undefined, type: addKind, title: addTitle.trim(), body: addBody.trim() }); setMessage(result.message); if (result.ok) { setAddTitle(""); setAddBody(""); setAddSectionId(undefined); } }
+  async function submitNote(event: React.FormEvent) { event.preventDefault(); if (!note.trim()) return; const result = await app.addNote(id, note.trim()); setMessage(result.message); if (result.ok) setNote(""); }
 
-  async function changeStatus(status: ThingStatus) {
-    const result = await app.setThingStatus(id, status);
-    setMessage(result.message);
-    setShowStatus(false);
-  }
+  return <div className="page calm-thing-detail">
+    <Link href={returnTo} className="back-link"><ArrowLeft size={14} />Things</Link>
+    <header className="calm-thing-header"><div>{exceptional ? <em>{exceptional}</em> : null}<h1>{thing.title}</h1>{thing.subtitle ? <p>{thing.subtitle}</p> : null}<small>{thing.dates[0] ? formatDateRange(thing.dates[0].start, thing.dates[0].end, thing.dates[0].precision) : null}{thing.dates[0] && thing.location ? " · " : null}{thing.location ? <><MapPin size={12} />{thing.location}</> : null}</small></div><div><button className="button quiet" onClick={() => setEditingThing(true)}><Pencil size={14} />Edit</button><details className="calm-more-menu"><summary className="icon-button" aria-label="More Thing actions"><MoreHorizontal /></summary><div><button onClick={() => setManageOpen(true)}>Manage</button><button onClick={() => setActivityOpen(true)}>Activity</button><button onClick={async () => setMessage((await app.duplicateThing(id)).message)}><Copy size={14} />Duplicate</button><button disabled={role !== "owner"} onClick={async () => { if (window.confirm("Archive this Thing?")) setMessage((await app.archiveThing(id)).message); }}><Trash2 size={14} />Archive</button></div></details></div></header>
+    {message ? <div className="inline-notice" role="status"><Check size={14} />{message}<button onClick={() => setMessage("")} aria-label="Dismiss">×</button></div> : null}
 
-  async function saveNote(noteId: string) {
-    const result = await app.updateNote(id, noteId, draft);
-    setMessage(result.message);
-    if (result.ok) setEditingNote(null);
-  }
+    <section className="thing-brief"><span className="avatar avatar-assistant">M</span><div><strong>Maria</strong><p>“{thing.summary}”</p></div></section>
+    {pending.length ? <section className="calm-thing-decisions"><h2>{pending.length === 1 ? "Decision" : "Decisions"}</h2>{pending.map((approval) => <ApprovalCard approval={approval} compact key={approval.id} onResolved={setMessage} />)}</section> : null}
 
-  async function addLink(event: React.FormEvent) {
-    event.preventDefault();
-    const result = editingLink
-      ? await app.updateLink(id, editingLink, linkTitle, linkUrl)
-      : await app.addLink(id, linkTitle, linkUrl);
-    setMessage(result.message);
-    if (result.ok) {
-      setLinkTitle("");
-      setLinkUrl("");
-      setLinkOpen(false);
-      setEditingLink(null);
-    }
-  }
+    <div className="calm-content-sections">{thing.sections.filter((section) => !section.archived).sort((a, b) => a.position - b.position).map((section) => { const items = thing.items.filter((item) => !item.archived && item.sectionId === section.id).sort((a, b) => a.position - b.position); return <section key={section.id}><div className="content-section-title"><h2>{section.title}</h2><button onClick={() => { setAddSectionId(section.id); setAddKind("note"); }}><Plus size={13} />Add</button></div>{section.body ? <p className="section-intro">{section.body}</p> : null}{items.length ? <div className="calm-item-list">{items.map((item) => <CalmItem key={item.id} thing={thing} item={item} onMessage={setMessage} />)}</div> : null}{addSectionId === section.id ? <AddComposer kind={addKind} title={addTitle} body={addBody} onKind={setAddKind} onTitle={setAddTitle} onBody={setAddBody} onSubmit={addContent} onClose={() => setAddSectionId(undefined)} /> : null}</section>; })}</div>
 
-  async function addOption(event: React.FormEvent) {
-    event.preventDefault();
-    const current = thing?.options.find((option) => option.id === editingOption);
-    const result = current
-      ? await app.updateOption(id, current.id, {
-          ...current,
-          name: optionName,
-          description: optionDescription,
-        })
-      : await app.addOption(id, {
-          name: optionName,
-          description: optionDescription,
-        });
-    setMessage(result.message);
-    if (result.ok) {
-      setOptionName("");
-      setOptionDescription("");
-      setOptionOpen(false);
-      setEditingOption(null);
-    }
-  }
+    {thing.options.length ? <section className="calm-products"><h2>Products</h2><div>{thing.options.map((option, index) => <ProductCard key={option.id} thing={thing} option={option} index={index} onMessage={setMessage} />)}</div></section> : null}
 
-  return (
-    <div className="page thing-detail-page">
-      <Link href={returnTo} className="back-link">
-        <ArrowLeft size={15} />
-        Back to Things
-      </Link>
-      <header className="thing-header">
-        <div className="thing-title-block">
-          <div className="thing-kicker">
-            <span>{thing.category}</span>
-            <StatusBadge status={thing.status} />
-            <PermissionBadge permission={thing.permission} />
-          </div>
-          <h1>{thing.title}</h1>
-          {thing.subtitle && <p className="thing-subtitle">{thing.subtitle}</p>}
-          {thing.location && (
-            <p>
-              <MapPin size={14} />
-              {thing.location}
-            </p>
-          )}
-        </div>
-        <div className="thing-header-actions">
-          <button
-            className="button primary"
-            onClick={() => setEditingThing(true)}
-          >
-            <Pencil size={15} />
-            Edit Thing
-          </button>
-          <div className="status-menu">
-            <button
-              className="button quiet"
-              onClick={() => setShowStatus(!showStatus)}
-            >
-              Change status <ChevronDown size={15} />
-            </button>
-            {showStatus && (
-              <div className="status-popover">
-                {statusValues.map((status) => (
-                  <button
-                    key={status}
-                    disabled={status === thing.status}
-                    onClick={() => changeStatus(status)}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <details className="more-menu">
-            <summary className="icon-button" aria-label="More Thing actions">
-              <MoreHorizontal />
-            </summary>
-            <div>
-              <button onClick={async () => setMessage((await app.duplicateThing(id)).message)}><Plus size={15} />Duplicate Thing</button>
-              <button
-                disabled={role !== "owner"}
-                onClick={async () => {
-                  if (
-                    window.confirm(
-                      "Move this Thing to Archive? Its history will remain searchable.",
-                    )
-                  ) {
-                    const result = await app.archiveThing(id);
-                    setMessage(result.message);
-                  }
-                }}
-              >
-                <Trash2 size={15} />
-                Archive Thing
-              </button>
-            </div>
-          </details>
-        </div>
-      </header>
-      <nav className="thing-subnav" aria-label="Thing sections">
-        <a href="#overview">Overview</a>
-        <a href="#decisions">
-          Decisions <span>{thingApprovals.length}</span>
-        </a>
-        <a href="#links-options">
-          Links & options{" "}
-          <span>{thing.links.length + thing.options.length}</span>
-        </a>
-        <a href="#notes">
-          Notes <span>{thing.notes.length}</span>
-        </a>
-        <a href="#activity">
-          Activity <span>{thingActivity.length}</span>
-        </a>
-      </nav>
-      {message && (
-        <div className="inline-notice" role="status">
-          <Check size={15} />
-          {message}
-          <button onClick={() => setMessage("")} aria-label="Dismiss">
-            ×
-          </button>
-        </div>
-      )}
-      <div className="thing-layout">
-        <div className="thing-primary">
-          <section id="overview" className="snapshot-card">
-            <p className="eyebrow">The working brief</p>
-            <p className="snapshot-copy">{thing.summary}</p>
-            {thing.description && <p className="snapshot-description">{thing.description}</p>}
-            <div className="thing-facts"><span>Owner · {thing.owner ?? "Jerry"}</span><span>Priority · {thing.priority ?? "normal"}</span>{thing.budget?.amount !== undefined && <span>Budget · {new Intl.NumberFormat("en-US", { style: "currency", currency: thing.budget.currency }).format(thing.budget.amount)}</span>}{thing.tags?.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-            <div className="next-action-panel">
-              <div>
-                <span>Owner next</span>
-                <strong>
-                  {thing.ownerNextAction || "No owner action needed."}
-                </strong>
-              </div>
-              <div>
-                <span>Assistant next</span>
-                <strong>
-                  {thing.assistantNextAction || "No assistant action queued."}
-                </strong>
-              </div>
-              {thing.waitingOn && (
-                <div>
-                  <span>Blocker</span>
-                  <strong>Waiting on {thing.waitingOn}</strong>
-                </div>
-              )}
-            </div>
-            <small>
-              Maintained from meaningful movement ·{" "}
-              {formatDate(thing.lastMoved)}
-            </small>
-          </section>
-          <section id="decisions" className="detail-section">
-            <div className="detail-section-heading">
-              <div>
-                <p className="eyebrow">Prepared, not buried</p>
-                <h2>Decisions</h2>
-              </div>
-              <CircleAlert size={18} />
-            </div>
-            {thingApprovals.length ? (
-              <div className="detail-approvals">
-                {thingApprovals.map((approval) => (
-                  <ApprovalCard
-                    approval={approval}
-                    key={approval.id}
-                    compact
-                    onResolved={setMessage}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="subtle-empty">
-                Nothing needs Jerry’s decision right now.
-              </p>
-            )}
-          </section>
-          <ThingWorkspace thing={thing} onMessage={setMessage} />
-          <section id="links-options" className="detail-section">
-            <div className="detail-section-heading">
-              <div>
-                <p className="eyebrow">Evidence and choices</p>
-                <h2>Links & options</h2>
-              </div>
-              <div className="compact-actions">
-                <button
-                  className="button quiet"
-                  onClick={() => {
-                    setEditingLink(null);
-                    setLinkTitle("");
-                    setLinkUrl("");
-                    setLinkOpen(!linkOpen);
-                  }}
-                >
-                  <Link2 size={14} />
-                  Add link
-                </button>
-                <button
-                  className="button quiet"
-                  onClick={() => {
-                    setEditingOption(null);
-                    setOptionName("");
-                    setOptionDescription("");
-                    setOptionOpen(!optionOpen);
-                  }}
-                >
-                  <Plus size={14} />
-                  Add option
-                </button>
-              </div>
-            </div>
-            {linkOpen && (
-              <form className="inline-form" onSubmit={addLink}>
-                <label>
-                  Link title
-                  <input
-                    value={linkTitle}
-                    onChange={(event) => setLinkTitle(event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  URL
-                  <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={(event) => setLinkUrl(event.target.value)}
-                    placeholder="https://"
-                    required
-                  />
-                </label>
-                <button className="button primary">
-                  {editingLink ? "Update link" : "Save link"}
-                </button>
-              </form>
-            )}
-            {optionOpen && (
-              <form className="inline-form" onSubmit={addOption}>
-                <label>
-                  Option name
-                  <input
-                    value={optionName}
-                    onChange={(event) => setOptionName(event.target.value)}
-                    required
-                  />
-                </label>
-                <label>
-                  Description
-                  <input
-                    value={optionDescription}
-                    onChange={(event) =>
-                      setOptionDescription(event.target.value)
-                    }
-                  />
-                </label>
-                <button className="button primary">
-                  {editingOption ? "Update option" : "Save option"}
-                </button>
-              </form>
-            )}
-            <div className="link-list">
-              {thing.links.map((item) => (
-                <article key={item.id}>
-                  <a href={item.url} target="_blank" rel="noreferrer">
-                    <Link2 size={15} />
-                    <span>
-                      <strong>{item.title}</strong>
-                      <small>{new URL(item.url).hostname}</small>
-                    </span>
-                    <ArrowUpRight size={14} />
-                  </a>
-                  <div>
-                    <button
-                      onClick={() => {
-                        setEditingLink(item.id);
-                        setLinkTitle(item.title);
-                        setLinkUrl(item.url);
-                        setLinkOpen(true);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={async () =>
-                        setMessage((await app.removeLink(id, item.id)).message)
-                      }
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </article>
-              ))}
-              {!thing.links.length && (
-                <p className="subtle-empty">No source links yet.</p>
-              )}
-            </div>
-            {thing.options.length > 0 && (
-              <div className="option-grid">
-                {thing.options.map((option, index) => (
-                  <article
-                    className={`option-card ${option.status === "recommended" ? "recommended" : ""}`}
-                    key={option.id}
-                  >
-                    <div className={`option-art option-art-${index % 3}`}>
-                      <span>
-                        {option.name
-                          .split(" ")
-                          .slice(0, 2)
-                          .map((word) => word[0])
-                          .join("")}
-                      </span>
-                    </div>
-                    <div className="option-body">
-                      <div className="option-top">
-                        {option.status === "recommended" && (
-                          <span className="recommended-label">
-                            Maria’s pick
-                          </span>
-                        )}
-                        <span>{option.status}</span>
-                      </div>
-                      <h3>{option.name}</h3>
-                      <p>{option.description}</p>
-                      {option.price && (
-                        <strong className="option-price">{option.price}</strong>
-                      )}
-                      <label className="product-status">Lifecycle<select value={option.status} onChange={async (event) => setMessage((await app.updateProductStatus(id, option.id, event.target.value as typeof option.status)).message)}>{["recommended", "considering", "saved", "rejected", "planned", "favorite", "approved", "ordered", "delivered", "keeping", "returning", "returned"].map((status) => <option key={status}>{status}</option>)}</select></label>
-                      {option.recommendation && (
-                        <div className="option-take">
-                          <span>Why it fits</span>
-                          <p>{option.recommendation}</p>
-                        </div>
-                      )}
-                      {option.tradeoff && (
-                        <p className="tradeoff">
-                          <strong>Tradeoff:</strong> {option.tradeoff}
-                        </p>
-                      )}
-                      {option.source && (
-                        <a
-                          href={option.source}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-link"
-                        >
-                          Open source <ArrowUpRight size={13} />
-                        </a>
-                      )}
-                      <div className="option-edit-actions">
-                        {!app.orders.some((order) => order.optionId === option.id) && <button onClick={async () => setMessage((await app.createOrder({ thingId: id, optionId: option.id, retailer: option.retailer, status: option.status === "ordered" ? "ordered" : "planned" })).message)}>Track order</button>}
-                        <button
-                          onClick={() => {
-                            setEditingOption(option.id);
-                            setOptionName(option.name);
-                            setOptionDescription(option.description);
-                            setOptionOpen(true);
-                            document
-                              .querySelector("#links-options")
-                              ?.scrollIntoView({ behavior: "smooth" });
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={async () =>
-                            setMessage(
-                              (await app.removeOption(id, option.id)).message,
-                            )
-                          }
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-            {app.orders.filter((order) => order.thingId === id).length > 0 && <div className="order-list"><h3>Orders & returns</h3>{app.orders.filter((order) => order.thingId === id).map((order) => <article key={order.id}><span>{order.retailer ?? thing.options.find((option) => option.id === order.optionId)?.name ?? "Order"}</span><select value={order.status} onChange={async (event) => setMessage((await app.updateOrder({ ...order, status: event.target.value as typeof order.status })).message)}>{["planned", "approved", "ordered", "shipped", "delivered", "returning", "returned", "cancelled"].map((status) => <option key={status}>{status}</option>)}</select></article>)}</div>}
-          </section>
-          <section id="notes" className="detail-section">
-            <div className="detail-section-heading">
-              <div>
-                <p className="eyebrow">The thread</p>
-                <h2>Notes & conversation</h2>
-              </div>
-              <MessageCircle size={18} />
-            </div>
-            <form className="note-composer" onSubmit={submitNote}>
-              <label htmlFor="thing-note" className="sr-only">
-                Add a note
-              </label>
-              <textarea
-                id="thing-note"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                placeholder={
-                  role === "assistant"
-                    ? "Add evidence, a follow-up, or what changed…"
-                    : "Add context without organizing it…"
-                }
-              />
-              <button className="button primary" type="submit">
-                <Send size={14} />
-                Add note
-              </button>
-            </form>
-            <div className="note-list">
-              {thing.notes.map((item) => (
-                <article key={item.id}>
-                  <span
-                    className={`avatar ${item.author === "Jerry" ? "avatar-owner" : "avatar-assistant"}`}
-                  >
-                    {item.author[0]}
-                  </span>
-                  <div>
-                    <div>
-                      <strong>{item.author}</strong>
-                      <small>
-                        {formatDate(item.at, {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </small>
-                    </div>
-                    {editingNote === item.id ? (
-                      <div className="inline-editor">
-                        <textarea
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                        />
-                        <div>
-                          <button
-                            className="button quiet"
-                            onClick={() => setEditingNote(null)}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            className="button primary"
-                            onClick={() => saveNote(item.id)}
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p>{item.body}</p>
-                        {item.author === ownerName && (
-                          <div className="note-actions">
-                            <button
-                              onClick={() => {
-                                setEditingNote(item.id);
-                                setDraft(item.body);
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={async () => {
-                                const result = await app.deleteNote(
-                                  id,
-                                  item.id,
-                                );
-                                setMessage(result.message);
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </article>
-              ))}
-              {!thing.notes.length && (
-                <p className="subtle-empty">No notes yet.</p>
-              )}
-            </div>
-          </section>
-          <section id="activity" className="detail-section">
-            <div className="detail-section-heading">
-              <div>
-                <p className="eyebrow">Meaningful movement</p>
-                <h2>Activity</h2>
-              </div>
-              <Clock3 size={18} />
-            </div>
-            <div className="detail-activity">
-              {thingActivity.map((item) => (
-                <article key={item.id}>
-                  <span />
-                  <div>
-                    <p>{item.text}</p>
-                    <small>
-                      {formatDate(item.at, {
-                        month: "long",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                    </small>
-                    {(item.before !== undefined || item.after !== undefined) && <details className="change-details"><summary>See exact change</summary><div>{item.before !== undefined && <pre><strong>Before</strong>{JSON.stringify(item.before, null, 2)}</pre>}{item.after !== undefined && <pre><strong>After</strong>{JSON.stringify(item.after, null, 2)}</pre>}</div></details>}
-                  </div>
-                </article>
-              ))}
-              {!thingActivity.length && (
-                <p className="subtle-empty">
-                  Movement will show up here in plain language.
-                </p>
-              )}
-            </div>
-          </section>
-        </div>
-        <aside className="thing-sidebar" aria-label="Supporting details">
-          <section className="control-card">
-            <p className="eyebrow">Operating permission</p>
-            <PermissionBadge permission={thing.permission} />
-            <p>
-              {thing.permission === "GO"
-                ? "Maria can research, organize, draft, and follow up without interrupting you."
-                : thing.permission === "APPROVE"
-                  ? "Maria prepares the action; Jerry resolves money or commitment."
-                  : "Maria can prepare context, but Jerry personally handles the action."}
-            </p>
-          </section>
-          <Toggle
-            checked={thing.keepMoving}
-            onChange={async () =>
-              setMessage((await app.toggleThing(id, "keepMoving")).message)
-            }
-            label="Keep this moving"
-            description="Surface a useful next step if this goes quiet."
-            icon="flame"
-          />
-          <Toggle
-            checked={thing.surpriseMe}
-            onChange={async () =>
-              setMessage((await app.toggleThing(id, "surpriseMe")).message)
-            }
-            label="Surprise me"
-            description="Occasional low-risk ideas that fit the brief."
-            icon="sparkles"
-          />
-          {thing.dates.length > 0 && (
-            <section className="side-card">
-              <p className="eyebrow">Dates</p>
-              {thing.dates.map((date) => (
-                <div className="side-date" key={date.id ?? date.label}>
-                  <CalendarDays size={16} />
-                  <div>
-                    <strong>{date.label}</strong>
-                    <p>
-                      {formatDateRange(date.start, date.end, date.precision)}
-                    </p>
-                    <small>
-                      {date.readiness} · {date.unresolved} open
-                    </small>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-          {thing.contacts.length > 0 && (
-            <section className="side-card">
-              <p className="eyebrow">People</p>
-              {thing.contacts.map((contact) => (
-                <div className="side-contact" key={contact.id}>
-                  <span className="contact-avatar">
-                    <UserRound size={15} />
-                  </span>
-                  <div>
-                    <strong>{contact.name}</strong>
-                    <p>{contact.context}</p>
-                    {contact.note && <small>{contact.note}</small>}
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-          {thing.followUps.length > 0 && (
-            <section className="side-card">
-              <p className="eyebrow">Follow-ups</p>
-              {thing.followUps.map((followUp) => (
-                <div className="side-date" key={followUp.id}>
-                  <Clock3 size={16} />
-                  <div>
-                    <strong>{followUp.waitingOn}</strong>
-                    <p>
-                      {formatDate(followUp.date)} · {followUp.state}
-                    </p>
-                    <small>
-                      {followUp.note ?? "Nothing was sent from this demo."}
-                    </small>
-                  </div>
-                </div>
-              ))}
-            </section>
-          )}
-        </aside>
-      </div>
-      {editingThing && (
-        <ThingEditor
-          thing={thing}
-          onClose={() => setEditingThing(false)}
-          onSaved={() => setMessage("Thing saved.")}
-        />
-      )}
-    </div>
-  );
+    <section className="calm-notes"><h2>Conversation</h2>{thing.notes.length ? <div>{thing.notes.slice(0, 4).map((entry) => <CalmNote key={entry.id} thing={thing} note={entry} onMessage={setMessage} />)}</div> : null}<form onSubmit={submitNote}><textarea value={note} onChange={(event) => setNote(event.target.value)} aria-label="Add a note" placeholder="Add context or a note…" /><button className="button primary"><Send size={14} />Add note</button></form></section>
+    <button className="add-something" onClick={() => { setAddSectionId(null); setAddKind("note"); }}><Plus size={15} />Add something</button>
+    {addSectionId === null ? <AddComposer kind={addKind} title={addTitle} body={addBody} onKind={setAddKind} onTitle={setAddTitle} onBody={setAddBody} onSubmit={addContent} onClose={() => setAddSectionId(undefined)} /> : null}
+
+    {editingThing ? <ThingEditor thing={thing} onClose={() => setEditingThing(false)} onSaved={() => setMessage("Thing saved.")} /> : null}
+    {manageOpen ? <ManageDrawer title="Manage Thing" onClose={() => setManageOpen(false)}><ThingWorkspace thing={thing} onMessage={setMessage} /><ManageLinks thing={thing} onMessage={setMessage} /></ManageDrawer> : null}
+    {activityOpen ? <ManageDrawer title="Activity" onClose={() => setActivityOpen(false)}><div className="manage-activity">{activity.map((entry) => <article key={entry.id}><span>{entry.actor}</span><p>{entry.text}</p><small>{formatDate(entry.at, { month: "long", day: "numeric", hour: "numeric", minute: "2-digit" })}</small>{entry.before !== undefined || entry.after !== undefined ? <details><summary>Exact change</summary><pre>{JSON.stringify({ before: entry.before, after: entry.after }, null, 2)}</pre></details> : null}</article>)}</div></ManageDrawer> : null}
+  </div>;
+}
+
+function CalmItem({ thing, item, onMessage }: { thing: Thing; item: ThingItem; onMessage: (message: string) => void }) {
+  const app = useApp(); const complete = item.status === "complete" || item.status === "done";
+  if (item.type === "action" || item.type === "checklist") return <label className={`calm-task ${complete ? "complete" : ""}`}><input type="checkbox" checked={complete} onChange={async (event) => onMessage((await app.updateItem(thing.id, item.id, { status: event.target.checked ? "complete" : "open" })).message)} /><span><strong>{item.title}</strong>{item.body ? <small>{item.body}</small> : null}</span></label>;
+  if (item.type === "link" && item.url) return <a className="calm-linked-item" href={item.url} target="_blank" rel="noreferrer"><Link2 size={14} />{item.title}<ArrowUpRight size={13} /></a>;
+  return <div className={`calm-content-item item-${item.type}`}><strong>{item.title}</strong>{item.body ? <p>{item.body}</p> : null}</div>;
+}
+
+function AddComposer({ kind, title, body, onKind, onTitle, onBody, onSubmit, onClose }: { kind: AddKind; title: string; body: string; onKind: (kind: AddKind) => void; onTitle: (value: string) => void; onBody: (value: string) => void; onSubmit: (event: React.FormEvent) => void; onClose: () => void }) {
+  return <form className="calm-add-composer" onSubmit={onSubmit}><div className="add-kind-row">{(["note", "action", "product", "person", "link"] as AddKind[]).map((value) => <button type="button" key={value} className={kind === value ? "active" : ""} onClick={() => onKind(value)}>{value === "action" ? "Task" : value[0].toUpperCase() + value.slice(1)}</button>)}</div><input autoFocus value={title} onChange={(event) => onTitle(event.target.value)} placeholder={kind === "product" ? "Product name" : kind === "action" ? "What needs doing?" : "Add a title"} required /><textarea value={body} onChange={(event) => onBody(event.target.value)} placeholder="Optional detail" /><div><button type="button" className="button quiet" onClick={onClose}>Cancel</button><button className="button primary">Add</button></div></form>;
+}
+
+function ProductCard({ thing, option, index, onMessage }: { thing: Thing; option: Option; index: number; onMessage: (message: string) => void }) {
+  const app = useApp(); const order = app.orders.find((entry) => entry.optionId === option.id); const [editing, setEditing] = useState(false); const [name, setName] = useState(option.name); const [description, setDescription] = useState(option.description);
+  async function status(value: Option["status"]) { onMessage((await app.updateProductStatus(thing.id, option.id, value)).message); }
+  return <article className="calm-product-card"><div className={`option-art option-art-${index % 3}`}>{option.image ? null : <span>{option.name.split(" ").slice(0, 2).map((word) => word[0]).join("")}</span>}</div><div><h3>{option.name}</h3>{option.price ? <strong className="product-price">{option.price}</strong> : null}{option.status === "recommended" ? <small>Maria’s pick</small> : null}<p>{option.recommendation ?? option.description}</p><div className="product-actions"><button className="button primary" onClick={() => void status("approved")}>Approve</button><button className="button quiet" onClick={() => void status("rejected")}>Pass</button><details><summary aria-label={`More about ${option.name}`}><MoreHorizontal size={16} /></summary><div>{editing ? <form className="product-edit-form" onSubmit={async (event) => { event.preventDefault(); const result = await app.updateOption(thing.id, option.id, { ...option, name: name.trim(), description: description.trim() }); onMessage(result.message); if (result.ok) setEditing(false); }}><input value={name} onChange={(event) => setName(event.target.value)} aria-label="Product name" required /><textarea value={description} onChange={(event) => setDescription(event.target.value)} aria-label="Product description" /><div><button type="button" onClick={() => setEditing(false)}>Cancel</button><button>Save</button></div></form> : <><p>{option.description}</p>{option.tradeoff ? <p><strong>Tradeoff:</strong> {option.tradeoff}</p> : null}{option.source ? <a href={option.source} target="_blank" rel="noreferrer">Source <ArrowUpRight size={12} /></a> : null}</>}<div className="product-natural-actions"><button onClick={() => setEditing(true)}>Edit</button><button onClick={() => void status("saved")}>Save for later</button><button onClick={() => void status("ordered")}>Ordered</button><button onClick={() => void status("delivered")}>Delivered</button><button onClick={() => void status("returning")}>Return</button>{!order ? <button onClick={async () => onMessage((await app.createOrder({ thingId: thing.id, optionId: option.id, retailer: option.retailer, status: "planned" })).message)}>Track order</button> : null}<button onClick={async () => onMessage((await app.removeOption(thing.id, option.id)).message)}>Remove</button></div>{order ? <label>Order<select value={order.status} onChange={async (event) => onMessage((await app.updateOrder({ ...order, status: event.target.value as typeof order.status })).message)}>{["planned", "approved", "ordered", "shipped", "delivered", "returning", "returned", "cancelled"].map((value) => <option key={value}>{value}</option>)}</select></label> : null}</div></details></div></div></article>;
+}
+
+function CalmNote({ thing, note, onMessage }: { thing: Thing; note: Thing["notes"][number]; onMessage: (message: string) => void }) {
+  const app = useApp(); const [editing, setEditing] = useState(false); const [body, setBody] = useState(note.body);
+  return <article><span className={`avatar ${note.author === "Jerry" ? "avatar-owner" : "avatar-assistant"}`}>{note.author[0]}</span><div><strong>{note.author}</strong>{editing ? <form className="note-edit-form" onSubmit={async (event) => { event.preventDefault(); const result = await app.updateNote(thing.id, note.id, body.trim()); onMessage(result.message); if (result.ok) setEditing(false); }}><textarea value={body} onChange={(event) => setBody(event.target.value)} aria-label="Edit note" required /><div><button type="button" onClick={() => setEditing(false)}>Cancel</button><button>Save</button></div></form> : <p>{note.body}</p>}<small>{formatDate(note.at)}</small><details className="note-more"><summary aria-label={`More actions for ${note.author} note`}><MoreHorizontal size={14} /></summary><div><button onClick={() => setEditing(true)}>Edit</button><button onClick={async () => onMessage((await app.deleteNote(thing.id, note.id)).message)}>Delete</button></div></details></div></article>;
+}
+
+function ManageLinks({ thing, onMessage }: { thing: Thing; onMessage: (message: string) => void }) {
+  const app = useApp(); const [title, setTitle] = useState(""); const [url, setUrl] = useState("");
+  return <section className="manage-links"><h2>Links</h2>{thing.links.map((link) => <article key={link.id}><a href={link.url} target="_blank" rel="noreferrer">{link.title}</a><button onClick={async () => onMessage((await app.removeLink(thing.id, link.id)).message)}>Remove</button></article>)}<form onSubmit={async (event) => { event.preventDefault(); const result = await app.addLink(thing.id, title, url); onMessage(result.message); if (result.ok) { setTitle(""); setUrl(""); } }}><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Link title" required /><input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://" required /><button className="button quiet">Add link</button></form></section>;
+}
+
+function ManageDrawer({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return <div className="manage-backdrop" role="presentation" onClick={onClose}><aside className="manage-drawer" role="dialog" aria-modal="true" aria-label={title} onClick={(event) => event.stopPropagation()}><header><h2>{title}</h2><button className="icon-button" onClick={onClose} aria-label={`Close ${title}`}><X /></button></header><div>{children}</div></aside></div>;
 }

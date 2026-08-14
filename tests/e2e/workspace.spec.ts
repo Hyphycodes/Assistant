@@ -8,46 +8,59 @@ test.beforeEach(async ({ context, page }) => {
   await page.goto("/sign-in");
 });
 
-test("owner can sign in, resolve a decision, and capture a thought", async ({ page }) => {
+test("owner can resolve a decision and a confident capture files itself", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await expect(page.getByRole("heading", { name: /Good .* Jerry/ })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Needs you/ })).toBeVisible();
-  await page.getByRole("button", { name: "Approve $200" }).click();
+  await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
+  await expect(page.getByText("Ideas to revisit")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Approve", exact: true }).first().click();
   await expect(page.getByText(/approved\. Maria can keep this moving/i)).toBeVisible();
-  await page.getByRole("link", { name: /Inbox/ }).click();
-  await page.getByLabel("What are you thinking about?").fill("Look into a quiet dinner spot in Chicago next week");
-  await page.getByRole("button", { name: "Save to Inbox" }).click();
-  await expect(page.getByText("Your original capture is safe")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Look into a quiet dinner spot" })).toBeVisible();
+
+  await page.goto("/inbox");
+  await page.getByLabel("What are you thinking about?").fill("For camping, add a tasteful lantern light by the tent.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText(/Added to Camping — Red Oak/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recent captures" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Undo" }).first()).toBeVisible();
 });
 
-test("Things views are deep-linkable and edits survive refresh", async ({ page }) => {
+test("Things keeps two calm views, deep links filters, and persists edits", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await page.waitForURL("/");
   await page.goto("/things?filter=needs-you&sort=blocked");
-  await expect(page.getByRole("button", { name: "Needs You" })).toHaveAttribute("aria-current", "page");
+
+  const views = page.getByRole("navigation", { name: "Thing views" });
+  await expect(views.getByRole("button")).toHaveCount(2);
+  await expect(views.getByRole("button", { name: "Active" })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator(".calm-filter select").first()).toHaveValue("needs-you");
   await expect(page.getByRole("heading", { name: "Mamma Mia — Dancing Queen" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fall Wardrobe" })).toHaveCount(0);
-  await expect(page.getByText(/decisions · .* unresolved · .* links/).first()).toBeVisible();
+  await expect(page.getByText(/decisions · .* unresolved · .* links/)).toHaveCount(0);
 
   await page.goto("/things/camping-red-oak");
-  await expect(page.getByRole("navigation", { name: "Thing sections" })).toContainText("Links & options");
-  await page.getByRole("button", { name: "Edit Thing" }).click();
+  await expect(page.getByRole("heading", { name: "Tent Setup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Owner next action").fill("Confirm the final campsite plan with Maria.");
   await page.getByRole("button", { name: "Save Thing" }).click();
-  await expect(page.getByText("Confirm the final campsite plan with Maria.", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Thing saved.")).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Confirm the final campsite plan with Maria.", { exact: true }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByLabel("Owner next action")).toHaveValue("Confirm the final campsite plan with Maria.");
 });
 
 test("assistant work is attributable and owner resolution is rejected by the server", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Maria" }).click();
-  await expect(page.getByRole("heading", { name: "Good evening, Maria." })).toBeVisible();
-  await page.getByRole("button", { name: "Movement", exact: true }).first().click();
-  await page.getByLabel("What changed").fill("Compared two viable windows and documented the tradeoff.");
-  await page.getByLabel("New assistant next action").fill("Add one clear recommendation for Jerry.");
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Do next" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Prepare decision" }).first().click();
+  await page.getByLabel("Decision needed").fill("Choose the quieter lighting direction");
+  await page.getByLabel("Recommendation").fill("Use two warm rechargeable lanterns");
+  await page.getByLabel("Why now").fill("This unblocks the campsite packing list.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Movement recorded. Jerry can see it on Home.")).toBeVisible();
+  await expect(page.getByText("Decision prepared for Jerry.")).toBeVisible();
 
   const response = await page.request.post("/api/workspace", {
     data: { action: "resolve_approval", payload: { id: "wardrobe-budget", status: "approved" } },
@@ -56,54 +69,88 @@ test("assistant work is attributable and owner resolution is rejected by the ser
   await expect(response.json()).resolves.toMatchObject({ error: /Only the owner/ });
 });
 
-test("assistant sees a prioritized briefing but cannot resolve owner approvals", async ({ page }) => {
+test("assistant gets a work-first Today view and cannot resolve owner decisions", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Maria" }).click();
-  await expect(page.getByRole("heading", { name: "Good evening, Maria." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Time-sensitive" })).toBeVisible();
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "Approve $200" })).toBeDisabled();
-  await expect(page.getByText(/only the owner can resolve/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Waiting" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Needs Jerry" })).toBeVisible();
+  await expect(page.getByText("Time-sensitive")).toHaveCount(0);
+
+  await page.goto("/things/camping-red-oak");
+  await expect(page.getByRole("button", { name: "Approve", exact: true }).first()).toBeDisabled();
+  await expect(page.getByText("Prepared for Jerry").first()).toBeVisible();
 });
 
-test("primary mobile navigation reaches every mental-model area", async ({ page }, testInfo) => {
+test("primary mobile navigation reaches the calm mental-model areas", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only navigation check");
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
-  for (const item of ["Things", "Inbox", "Search", "Calendar", "Home"]) {
-    await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: item }).click();
-    await expect(page.getByRole("heading", { name: item === "Home" ? /Good .* Jerry/ : item }).first()).toBeVisible();
+  const destinations = [
+    { link: "Things", heading: "Things" },
+    { link: "Capture", heading: "Inbox" },
+    { link: "Search", heading: "Search" },
+    { link: "Calendar", heading: "Calendar" },
+    { link: "Home", heading: /Good .* Jerry/ },
+  ];
+  for (const destination of destinations) {
+    await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: destination.link }).click();
+    await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
   }
 });
 
-test("owner can shape sections, items, fields, and subthings with persisted server writes", async ({ page }) => {
+test("advanced Thing capabilities stay preserved behind Manage", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
-  let detail = page.getByRole("main").first();
-  await detail.getByLabel("New section").fill("Weather plan");
-  await detail.getByRole("button", { name: "Add section" }).click();
-  await expect(detail.locator('input[value="Weather plan"]')).toBeVisible();
-  await detail.getByRole("textbox", { name: "Item", exact: true }).fill("Pack rain shell");
-  await detail.getByRole("button", { name: "Add item" }).click();
-  await expect(detail.locator('input[value="Pack rain shell"]')).toBeVisible();
-  await detail.getByLabel("Field name").fill("Weather backup");
-  await detail.getByRole("button", { name: "Add field" }).click();
-  await expect(detail.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
+
+  await expect(page.getByRole("heading", { name: "Sections & items" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Subthings & relationships" })).toHaveCount(0);
+  await page.getByRole("main").getByLabel("More Thing actions").click();
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+
+  let manage = page.getByRole("dialog", { name: "Manage Thing" });
+  await manage.getByLabel("New section").fill("Weather plan");
+  await manage.getByRole("button", { name: "Add section" }).click();
+  await expect(manage.locator('input[value="Weather plan"]')).toBeVisible();
+  await manage.getByRole("textbox", { name: "Item", exact: true }).fill("Pack rain shell");
+  await manage.getByRole("button", { name: "Add item" }).click();
+  await expect(manage.locator('input[value="Pack rain shell"]')).toBeVisible();
+  await manage.getByLabel("Field name").fill("Weather backup");
+  await manage.getByRole("button", { name: "Add field" }).click();
+  await expect(manage.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
+
   await page.reload();
-  detail = page.getByRole("main").first();
-  await expect(detail.locator('input[value="Weather plan"]')).toBeVisible();
-  await expect(detail.locator('input[value="Pack rain shell"]')).toBeVisible();
-  await expect(detail.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
-  await expect(detail.getByRole("link", { name: /Tent Setup/ })).toBeVisible();
+  await page.getByRole("main").getByLabel("More Thing actions").click();
+  await page.getByRole("button", { name: "Manage", exact: true }).click();
+  manage = page.getByRole("dialog", { name: "Manage Thing" });
+  await expect(manage.locator('input[value="Weather plan"]')).toBeVisible();
+  await expect(manage.locator('input[value="Pack rain shell"]')).toBeVisible();
+  await expect(manage.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
+  await expect(manage.getByRole("link", { name: /Tent Setup/ })).toBeVisible();
 });
 
-test("mobile detail keeps work before supporting metadata", async ({ page }, testInfo) => {
+test("product lifecycle and management stay hidden until requested", async ({ page }) => {
+  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.waitForURL("/");
+  await page.goto("/things/camping-red-oak");
+
+  const product = page.locator(".calm-product-card").first();
+  await expect(product.getByRole("button", { name: "Approve" })).toBeVisible();
+  await expect(product.getByRole("button", { name: "Pass" })).toBeVisible();
+  await expect(product.getByRole("button", { name: "Track order" })).toHaveCount(0);
+  await product.locator("details > summary").click();
+  await expect(product.getByRole("button", { name: "Edit" })).toBeVisible();
+  await expect(product.getByRole("button", { name: "Track order" })).toBeVisible();
+});
+
+test("mobile detail keeps the work surface visible and management collapsed", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only content order check");
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
-  const overview = await page.locator("#overview").first().boundingBox();
-  const sidebar = await page.getByRole("complementary", { name: "Supporting details" }).first().boundingBox();
-  expect(overview).not.toBeNull();
-  expect(sidebar).not.toBeNull();
-  expect(overview!.y).toBeLessThan(sidebar!.y);
+
+  await expect(page.getByRole("heading", { name: "Tent Setup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Capture" })).toBeVisible();
 });
