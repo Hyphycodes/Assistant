@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ context, page }) => {
   await context.clearCookies();
+  await page.request.post("/api/auth/demo", { data: { role: "owner" } });
+  await page.request.delete("/api/workspace");
+  await context.clearCookies();
   await page.goto("/sign-in");
-  await page.evaluate(() => localStorage.clear());
 });
 
 test("owner can sign in, resolve a decision, and capture a thought", async ({ page }) => {
@@ -24,7 +26,7 @@ test("Things views are deep-linkable and edits survive refresh", async ({ page }
   await page.waitForURL("/");
   await page.goto("/things?filter=needs-you&sort=blocked");
   await expect(page.getByRole("button", { name: "Needs You" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { name: "Oasis Paint & Sip" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mamma Mia — Dancing Queen" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Fall Wardrobe" })).toHaveCount(0);
   await expect(page.getByText(/decisions · .* unresolved · .* links/).first()).toBeVisible();
 
@@ -47,7 +49,7 @@ test("assistant work is attributable and owner resolution is rejected by the ser
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Movement recorded. Jerry can see it on Home.")).toBeVisible();
 
-  const response = await page.request.post("/api/demo/mutate", {
+  const response = await page.request.post("/api/workspace", {
     data: { action: "resolve_approval", payload: { id: "wardrobe-budget", status: "approved" } },
   });
   expect(response.status()).toBe(403);
@@ -66,10 +68,32 @@ test("assistant sees a prioritized briefing but cannot resolve owner approvals",
 test("primary mobile navigation reaches every mental-model area", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile", "Mobile-only navigation check");
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
-  for (const item of ["Things", "Inbox", "Calendar", "Archive", "Home"]) {
+  for (const item of ["Things", "Inbox", "Search", "Calendar", "Home"]) {
     await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: item }).click();
     await expect(page.getByRole("heading", { name: item === "Home" ? /Good .* Jerry/ : item }).first()).toBeVisible();
   }
+});
+
+test("owner can shape sections, items, fields, and subthings with persisted server writes", async ({ page }) => {
+  await page.getByRole("button", { name: "Continue as Jerry" }).click();
+  await page.waitForURL("/");
+  await page.goto("/things/camping-red-oak");
+  let detail = page.getByRole("main").first();
+  await detail.getByLabel("New section").fill("Weather plan");
+  await detail.getByRole("button", { name: "Add section" }).click();
+  await expect(detail.locator('input[value="Weather plan"]')).toBeVisible();
+  await detail.getByRole("textbox", { name: "Item", exact: true }).fill("Pack rain shell");
+  await detail.getByRole("button", { name: "Add item" }).click();
+  await expect(detail.locator('input[value="Pack rain shell"]')).toBeVisible();
+  await detail.getByLabel("Field name").fill("Weather backup");
+  await detail.getByRole("button", { name: "Add field" }).click();
+  await expect(detail.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
+  await page.reload();
+  detail = page.getByRole("main").first();
+  await expect(detail.locator('input[value="Weather plan"]')).toBeVisible();
+  await expect(detail.locator('input[value="Pack rain shell"]')).toBeVisible();
+  await expect(detail.getByRole("textbox", { name: "Weather backup" })).toBeVisible();
+  await expect(detail.getByRole("link", { name: /Tent Setup/ })).toBeVisible();
 });
 
 test("mobile detail keeps work before supporting metadata", async ({ page }, testInfo) => {
@@ -77,8 +101,8 @@ test("mobile detail keeps work before supporting metadata", async ({ page }, tes
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
-  const overview = await page.locator("#overview").boundingBox();
-  const sidebar = await page.getByRole("complementary", { name: "Supporting details" }).boundingBox();
+  const overview = await page.locator("#overview").first().boundingBox();
+  const sidebar = await page.getByRole("complementary", { name: "Supporting details" }).first().boundingBox();
   expect(overview).not.toBeNull();
   expect(sidebar).not.toBeNull();
   expect(overview!.y).toBeLessThan(sidebar!.y);

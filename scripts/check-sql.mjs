@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 
-const migration = readFileSync(new URL("../supabase/migrations/202608140001_hyphy_hq.sql", import.meta.url), "utf8").toLowerCase();
+const migration = ["202608140001_hyphy_hq.sql", "202608140002_flexible_workspace.sql"].map((file) => readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8")).join("\n").toLowerCase();
 const requiredTables = ["workspaces", "workspace_members", "things", "thing_dates", "thing_sections", "thing_notes", "thing_links", "inbox_items", "inbox_attachments", "ai_runs", "inbox_proposals", "activity_events", "thing_messages", "approvals", "approval_actions", "contacts", "thing_contacts", "thing_options", "orders", "integration_connections"];
-const missing = requiredTables.filter((table) => !migration.includes(`create table public.${table}`) || !migration.includes(`alter table public.${table} enable row level security`));
+requiredTables.push("thing_relationships", "items", "custom_field_definitions", "custom_field_values", "preferences", "templates", "workspace_snapshots");
+const missing = requiredTables.filter((table) => !new RegExp(`create table (if not exists )?public\\.${table}`).test(migration) || !migration.includes(`alter table public.${table} enable row level security`));
 if (missing.length) {
   console.error(`Migration contract incomplete: ${missing.join(", ")}`);
   process.exit(1);

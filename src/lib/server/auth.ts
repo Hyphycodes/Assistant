@@ -9,9 +9,9 @@ export type WorkspaceSession = {
 };
 
 /**
- * Central server authorization seam. Demo cookies never authorize a production
- * data provider; once Supabase is configured, replace only this adapter and keep
- * workspace authorization at every mutation boundary.
+ * Central authorization seam. The included cookie profiles are evaluation-only.
+ * Replace this adapter with verified Supabase Auth claims before accepting private
+ * production data, while keeping authorization at every command boundary.
  */
 export async function requireWorkspaceSession(): Promise<WorkspaceSession> {
   const value = (await cookies()).get("hyphy_session")?.value;

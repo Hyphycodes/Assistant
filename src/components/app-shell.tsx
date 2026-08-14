@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { Archive, CalendarDays, ChevronDown, CircleUserRound, Home, Inbox, ListTodo, Menu, Settings, Sparkles, X } from "lucide-react";
+import { Archive, BookOpenText, Brain, CalendarDays, ChevronDown, CircleUserRound, ContactRound, Home, Inbox, ListTodo, Menu, Search, Settings, Sparkles, X } from "lucide-react";
 import type { Role } from "@/lib/domain";
 import { AppProvider, useApp } from "./app-provider";
 
@@ -11,7 +11,14 @@ const primary = [
   { href: "/", label: "Home", icon: Home },
   { href: "/things", label: "Things", icon: ListTodo },
   { href: "/inbox", label: "Inbox", icon: Inbox },
+  { href: "/search", label: "Search", icon: Search },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+];
+
+const secondary = [
+  { href: "/contacts", label: "Contacts", icon: ContactRound },
+  { href: "/templates", label: "Templates", icon: BookOpenText },
+  { href: "/preferences", label: "Preferences", icon: Brain },
   { href: "/archive", label: "Archive", icon: Archive },
 ];
 
@@ -37,6 +44,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
           <Link href="/assistant" className={`nav-link assistant-link ${active("/assistant") ? "active" : ""}`} aria-current={active("/assistant") ? "page" : undefined}>
             <Sparkles size={18} strokeWidth={1.8} /><span>Assistant</span>
           </Link>
+          {secondary.map(({ href, label, icon: Icon }) => <Link key={href} href={href} className={`nav-link ${active(href) ? "active" : ""}`} aria-current={active(href) ? "page" : undefined}><Icon size={18} strokeWidth={1.8} /><span>{label}</span></Link>)}
         </nav>
         <div className="sidebar-bottom">
           <Link href="/settings" className={`nav-link ${active("/settings") ? "active" : ""}`}><Settings size={18} /><span>Settings</span></Link>
@@ -63,6 +71,7 @@ function ShellInner({ children }: { children: React.ReactNode }) {
             <button className="icon-button menu-close" onClick={() => setMenuOpen(false)} aria-label="Close workspace menu"><X /></button>
             <div className="menu-person"><CircleUserRound /><span><strong>{role === "owner" ? "Jerry" : "Maria"}</strong><small>{role === "owner" ? "Owner view" : "Assistant view"}</small></span></div>
             <Link href="/assistant" onClick={() => setMenuOpen(false)}><Sparkles size={18} /> Assistant briefing</Link>
+            {secondary.map(({ href, label, icon: Icon }) => <Link href={href} key={href} onClick={() => setMenuOpen(false)}><Icon size={18} /> {label}</Link>)}
             <Link href="/settings" onClick={() => setMenuOpen(false)}><Settings size={18} /> Settings</Link>
             <form action="/api/auth/sign-out" method="post"><button type="submit">Sign out</button></form>
           </div>

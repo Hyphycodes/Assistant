@@ -27,6 +27,12 @@ export type ThingStatus = (typeof statusValues)[number];
 export type Permission = (typeof permissionValues)[number];
 export type Role = "owner" | "assistant";
 
+export const customFieldTypeValues = [
+  "short_text", "long_text", "number", "currency", "date", "date_range",
+  "checkbox", "contact", "select", "multi_select", "url", "status",
+] as const;
+export type CustomFieldType = (typeof customFieldTypeValues)[number];
+
 export type ThingDate = {
   id?: string;
   label: string;
@@ -45,8 +51,13 @@ export type Option = {
   source?: string;
   recommendation?: string;
   tradeoff?: string;
-  status: "recommended" | "considering" | "saved" | "rejected" | "planned";
+  status: "recommended" | "considering" | "saved" | "rejected" | "planned" | "favorite" | "approved" | "ordered" | "delivered" | "keeping" | "returning" | "returned";
   image?: string;
+  retailer?: string;
+  originalPrice?: string;
+  size?: string;
+  color?: string;
+  ownerReaction?: string;
 };
 
 export type Contact = {
@@ -56,6 +67,62 @@ export type Contact = {
   organization?: string;
   location?: string;
   note?: string;
+  phone?: string;
+  email?: string;
+  socialHandle?: string;
+  tags?: string[];
+  archived?: boolean;
+};
+
+export type ThingItem = {
+  id: string;
+  sectionId?: string;
+  type: "note" | "action" | "idea" | "product" | "decision" | "link" | "person" | "place" | "event" | "reservation" | "file" | "checklist";
+  title: string;
+  body?: string;
+  status?: string;
+  owner?: "Jerry" | "Maria";
+  dueAt?: string;
+  contactId?: string;
+  linkedThingId?: string;
+  url?: string;
+  position: number;
+  archived?: boolean;
+};
+
+export type ThingSection = {
+  id: string;
+  title: string;
+  body: string;
+  description?: string;
+  position: number;
+  collapsed?: boolean;
+  archived?: boolean;
+  icon?: string;
+};
+
+export type CustomField = {
+  id: string;
+  label: string;
+  key: string;
+  type: CustomFieldType;
+  value: unknown;
+  options?: string[];
+  position: number;
+};
+
+export type Order = {
+  id: string;
+  thingId: string;
+  optionId?: string;
+  retailer?: string;
+  reference?: string;
+  status: "planned" | "approved" | "ordered" | "shipped" | "delivered" | "returning" | "returned" | "cancelled";
+  orderedAt?: string;
+  expectedAt?: string;
+  deliveredAt?: string;
+  returnBy?: string;
+  refundStatus?: string;
 };
 
 export type Activity = {
@@ -64,11 +131,20 @@ export type Activity = {
   actor: "Jerry" | "Maria" | "System";
   text: string;
   at: string;
+  action?: string;
+  entityType?: string;
+  entityId?: string;
+  before?: unknown;
+  after?: unknown;
 };
 
 export type Thing = {
   id: string;
   title: string;
+  subtitle?: string;
+  description?: string;
+  icon?: string;
+  coverUrl?: string;
   summary: string;
   ownerNextAction: string;
   assistantNextAction: string;
@@ -81,13 +157,23 @@ export type Thing = {
   lastMoved: string;
   waitingOn?: string;
   location?: string;
+  owner?: "Jerry" | "Maria";
+  collaborators?: string[];
+  priority?: "low" | "normal" | "high";
+  budget?: { amount?: number; currency: string };
+  tags?: string[];
+  parentId?: string;
+  relatedThingIds?: string[];
   dates: ThingDate[];
   contacts: Contact[];
   options: Option[];
   notes: { id: string; author: "Jerry" | "Maria"; body: string; at: string }[];
   links: { id: string; title: string; url: string }[];
   followUps: { id: string; waitingOn: string; date: string; channel?: string; note?: string; state: "drafted" | "attempted" }[];
-  sections: { id: string; title: string; body: string }[];
+  waiting?: { type: "owner" | "assistant" | "contact" | "date" | "delivery"; label: string; contactId?: string; followUpAt?: string; note?: string };
+  sections: ThingSection[];
+  items: ThingItem[];
+  customFields: CustomField[];
 };
 
 export type Approval = {
@@ -100,6 +186,34 @@ export type Approval = {
   actionLabel: string;
   meta: string;
   status: "pending" | "approved" | "rejected" | "held";
+  options?: { id: string; label: string; description?: string }[];
+  amount?: number;
+  currency?: string;
+  urgency?: "low" | "normal" | "high";
+  responses?: { id: string; action: string; reason?: string; note?: string; actor: "Jerry" | "Maria"; at: string }[];
+};
+
+export type Preference = {
+  id: string;
+  domain: string;
+  attribute: string;
+  statement: string;
+  sentiment: "likes" | "dislikes" | "neutral";
+  sourceType: string;
+  sourceId?: string;
+  confidence: number;
+  confirmed: boolean;
+  createdAt: string;
+};
+
+export type WorkspaceTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  type: "blank" | "trip" | "event" | "shopping" | "personal_admin" | "business" | "restaurant_event" | "party";
+  sections: { title: string; body?: string }[];
+  fields: { label: string; type: CustomFieldType; options?: string[] }[];
+  archived?: boolean;
 };
 
 export type InboxItem = {
@@ -122,11 +236,16 @@ export type InboxItem = {
 };
 
 export type AppState = {
-  schemaVersion: 2;
+  schemaVersion: 3;
+  revision: number;
   things: Thing[];
   approvals: Approval[];
   inbox: InboxItem[];
   activities: Activity[];
+  contacts: Contact[];
+  preferences: Preference[];
+  templates: WorkspaceTemplate[];
+  orders: Order[];
 };
 
 export const captureSchema = z.object({
@@ -140,6 +259,8 @@ export const thingFilterSchema = z.enum(thingFilterValues);
 
 export const thingEditSchema = z.object({
   title: z.string().trim().min(1, "A Thing needs a title.").max(120),
+  subtitle: z.string().trim().max(240).optional(),
+  description: z.string().trim().max(6000).optional(),
   summary: z.string().trim().max(1200),
   ownerNextAction: z.string().trim().max(240),
   assistantNextAction: z.string().trim().max(240),
@@ -147,6 +268,11 @@ export const thingEditSchema = z.object({
   status: z.enum(statusValues),
   permission: z.enum(permissionValues),
   location: z.string().trim().max(180).optional(),
+  owner: z.enum(["Jerry", "Maria"]).optional(),
+  priority: z.enum(["low", "normal", "high"]).optional(),
+  budgetAmount: z.number().min(0).optional(),
+  budgetCurrency: z.string().trim().length(3).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
   keepMoving: z.boolean(),
   surpriseMe: z.boolean(),
   date: z.object({

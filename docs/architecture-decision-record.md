@@ -8,12 +8,12 @@ The source repository was empty. The build contract requires a calm, useful v1 b
 
 Use Next.js App Router, React, TypeScript, Tailwind’s CSS build pipeline, Zod validation, Supabase-compatible SQL, Vitest, and Playwright.
 
-The first runnable slice uses an explicit local demo provider:
+The runnable slice uses an explicit server command boundary:
 
 - An HTTP-only cookie distinguishes owner and assistant sessions on the server.
-- A versioned browser record holds only the fictional workspace and makes every primary interaction testable without credentials.
+- A versioned server record holds the fictional workspace; the client never commits data before the authenticated server write succeeds.
 - Domain rules live outside view components.
-- Supabase migration/RLS is implemented now; production server mutations replace the demo provider without changing the screen model.
+- The same command store uses atomic local files in development and a revision-checked Supabase workspace snapshot when configured.
 - AI falls back to deterministic, reviewable extraction. It never blocks capture.
 - External providers default to `disconnected` and cannot return a false success.
 
@@ -32,7 +32,7 @@ A fake network integration would violate the product contract. Requiring Supabas
 
 ## Consequences and deferred production work
 
-- Local demo changes do not synchronize across browsers or people.
+- Local server-file changes synchronize across browsers on one development server. Vercel fallback storage is explicitly ephemeral until Supabase is configured.
 - Supabase Auth/Storage, job runners, realtime collaboration, and provider credentials remain deployment work.
 - Browser upload controls preserve demo metadata only; real binary persistence starts when private Storage is connected.
 - Deterministic extraction is intentionally conservative and cannot transcribe audio.

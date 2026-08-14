@@ -7,15 +7,15 @@ This repository is a production-shaped vertical slice built from the ten-documen
 ## What works now
 
 - Role-aware demo sign-in for Jerry (owner) and Maria (assistant), guarded by an HTTP-only session cookie and Next.js Proxy.
-- Home with Needs You, distinct approve/hold/reject/edit owner controls, Moved Today, Coming Up readiness, and ideas to revisit.
+- Home with Needs You, explicit approve/reject/question/alternatives/save-later owner controls, Moved Today, Coming Up readiness, and ideas to revisit.
 - URL-addressable Things views for active work, Needs You, In Motion, Waiting, Ready, Someday, and Done; each row exposes its next action, blocker, readiness, counts, and movement.
-- An accessible New/Edit Thing workflow with role-aware ownership, validation, reset/cancel states, dates, location, permissions, and operating signals.
-- Work-first detail pages with stable section anchors plus editable working briefs, context sections, notes, links, options, dates, and status.
+- An accessible New/Edit Thing workflow with role-aware ownership, validation, reset/cancel states, subtitle, description, dates, location, owner, priority, budget, tags, permissions, and operating signals.
+- Work-first detail pages with editable sections, typed items, typed custom fields, subthings, relationships, products/orders, notes, links, dates, exact activity deltas, and status.
 - Inbox capture for text, links, photos, files, and uploaded audio with preserved raw input and reviewable deterministic proposals.
 - Assistant workbench with attributable movement, follow-up drafting, source/option capture, approval preparation, and status changes. Owner preview is read-only.
-- Calendar readiness and Archive search across Things, people, options, notes, activity, and original captures.
+- Global grouped Search plus Contacts, Templates, Preferences, Calendar readiness, and a restorable Archive.
 - Explicit disconnected states for integrations. No demo action implies that a message, purchase, booking, or call happened.
-- Supabase relational migration covering the complete v1 data model, RLS, one-owner invariant, and owner-only approval/integration policies.
+- Authenticated server commands with atomic local persistence and an optional Supabase snapshot backend, plus relational migrations covering the flexible object model, RLS, one-owner invariant, and owner-only approval/integration policies.
 - Unit/security tests and desktop/mobile browser flows.
 
 ## Local setup
@@ -27,7 +27,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Choose Jerry or Maria. Demo edits persist only in that browser’s local storage and can be reset from Settings.
+Open [http://localhost:3000](http://localhost:3000). Choose Jerry or Maria. Demo edits persist on the server, survive refresh and separate browser sessions, and can be reset from Settings.
 
 No environment variables are required for demo mode. Copy `.env.example` to `.env.local` only when connecting providers.
 
@@ -51,15 +51,16 @@ npx playwright install chromium
 
 ## Production data plane
 
-The interface currently uses a versioned local demo provider so the experience remains complete without credentials. Every scoped UI mutation is validated by an authenticated server route before the browser updates demo state; the browser remains the demo persistence layer. The production boundary is intentionally narrow:
+The interface uses one authenticated command route. It loads the latest revision, applies a validated role-aware command, writes successfully, and only then returns the new state to the client. Without credentials it uses an atomic `.data` server file locally. With the three Supabase variables below it stores the full normalized workspace in a revision-checked Postgres snapshot:
 
 1. Create a Supabase project and configure the values in `.env.example`.
-2. Apply `supabase/migrations/202608140001_hyphy_hq.sql`.
+2. Apply both files in `supabase/migrations/` in timestamp order.
 3. Create local/demo Auth users before running `supabase/seed.sql`; no sample password is committed.
-4. Replace the demo session implementation through `src/lib/server/auth.ts`, then replace the local state commits in `AppProvider` with database-backed commands. Retain the validation and permission rules in `src/app/api/demo/mutate/route.ts`.
-5. Keep RLS enabled and verify owner, assistant, cross-workspace, suspended-user, and unauthenticated cases against the actual project.
+4. Set `HYPHY_WORKSPACE_ID` to the target workspace UUID. `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` complete the data connection.
+5. Before accepting private user data, replace the demo session adapter in `src/lib/server/auth.ts` with Supabase Auth claims and keep every command behind the same authorization boundary.
+6. Keep RLS enabled and verify owner, assistant, cross-workspace, suspended-user, and unauthenticated cases against the actual project.
 
-The migration is the durable production source of truth. Browser local storage is not a production database, does not sync between browsers, and must not hold real private data.
+The Supabase snapshot is the durable hosted source of truth. Vercel without Supabase deliberately reports `ephemeral-server` and writes only to `/tmp`; that mode is suitable for evaluation, not durable private data.
 
 ## Provider seams
 
@@ -83,4 +84,4 @@ docs/                    architecture decisions and implementation notes
 
 ## Deployment
 
-The app can deploy to Vercel as-is in demo mode. A real deployment should connect Supabase before accepting private user data, replace demo auth, configure private Storage buckets, and set provider secrets only in the deployment environment.
+The app can deploy to Vercel as an honest preview. A durable deployment must connect Supabase; a private production deployment must also replace demo auth, configure private Storage buckets, and keep provider secrets only in the deployment environment.

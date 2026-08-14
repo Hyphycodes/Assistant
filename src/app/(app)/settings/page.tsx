@@ -12,7 +12,7 @@ const integrations = [
 ];
 
 export default function SettingsPage() {
-  const { role, resetDemo } = useApp();
+  const { role, resetDemo, persistence, revision } = useApp();
   const [weekly, setWeekly] = useState(true);
   const [stale, setStale] = useState(true);
   const [notice, setNotice] = useState("");
@@ -27,7 +27,7 @@ export default function SettingsPage() {
         <section className="settings-card"><div className="settings-heading"><div className="settings-icon"><Bell /></div><div><h2>Recaps & nudges</h2><p>Useful signal without another noisy feed.</p></div></div><Toggle checked={weekly} onChange={() => setWeekly(!weekly)} label="Weekly studio note" description="Movement, decisions, waiting, and what’s coming." /><Toggle checked={stale} onChange={() => setStale(!stale)} label="Keep-moving check" description="Suggest one useful step when an active Thing goes quiet." /></section>
         <section className="settings-card"><div className="settings-heading"><div className="settings-icon"><ShieldCheck /></div><div><h2>Privacy & data</h2><p>Private workspace records with an export path.</p></div></div><ul className="security-list"><li><Check />Private media access</li><li><Check />Append-oriented activity history</li><li><Check />Workspace-scoped search</li><li><Check />Provider secrets stay out of app records</li></ul><div className="settings-actions"><button className="button quiet" disabled={role !== "owner"}>Export workspace</button><button className="button quiet" disabled={role !== "owner"}>Delete workspace</button></div></section>
       </div>
-      <section className="demo-panel"><div><span className="demo-icon"><Sparkles /></span><div><p className="eyebrow">Local demo tools</p><h2>Reset the studio</h2><p>Restore the fictional seed workspace and clear any local changes from this browser.</p></div></div><button className="button quiet" onClick={() => { resetDemo(); setNotice("Demo workspace restored."); }}><RotateCcw size={15} />Reset demo data</button></section>
+      <section className="demo-panel"><div><span className="demo-icon"><Sparkles /></span><div><p className="eyebrow">Server workspace</p><h2>{persistence === "supabase" ? "Durable Supabase persistence" : persistence === "ephemeral-server" ? "Ephemeral preview persistence" : "Local server-file persistence"}</h2><p>Revision {revision}. {persistence === "ephemeral-server" ? "Connect Supabase before relying on hosted writes; preview storage can reset between deployments." : "Reset restores the fictional seed workspace for every browser using this environment."}</p></div></div><button className="button quiet" disabled={role !== "owner"} onClick={async () => setNotice((await resetDemo()).message)}><RotateCcw size={15} />Reset demo data</button></section>
     </div>
   );
 }

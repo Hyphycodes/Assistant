@@ -23,6 +23,10 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
   const [primary, setPrimary] = useState("");
   const [secondary, setSecondary] = useState("");
   const [tertiary, setTertiary] = useState("");
+  const [alternativeA, setAlternativeA] = useState("");
+  const [alternativeB, setAlternativeB] = useState("");
+  const [amount, setAmount] = useState("");
+  const [urgency, setUrgency] = useState<"low" | "normal" | "high">("normal");
   const [date, setDate] = useState(new Date(new Date(app.renderedAt).getTime() + 3 * 86_400_000).toISOString().slice(0, 16));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -44,7 +48,7 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
           ? await app.addLink(thing.id, primary, secondary)
           : action === "option"
             ? await app.addOption(thing.id, { name: primary, description: secondary, recommendation: tertiary || undefined })
-            : await app.createApproval({ thingId: thing.id, title: primary, recommendation: secondary, whyNow: tertiary || "This decision unlocks the next useful move.", context: thing.summary, actionLabel: "Approve", meta: "Prepared in the assistant workbench", permission: thing.permission === "YOU" ? "YOU" : "APPROVE" });
+            : await app.createApproval({ thingId: thing.id, title: primary, recommendation: secondary, whyNow: tertiary || "This decision unlocks the next useful move.", context: thing.summary, actionLabel: "Approve", meta: "Prepared in the assistant workbench", permission: thing.permission === "YOU" ? "YOU" : "APPROVE", options: [{ label: secondary, description: "Maria’s recommended direction" }, ...[alternativeA, alternativeB].filter(Boolean).map((label) => ({ label }))], amount: amount ? Number(amount) : undefined, urgency });
     setPending(false);
     if (!result.ok) { setError(result.message); return; }
     onDone(result.message); onClose();
@@ -58,6 +62,7 @@ export function AssistantActionDialog({ thing, action, onClose, onDone }: {
         {action === "follow-up" && <label>Follow-up date<input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} required /></label>}
         <label>{action === "movement" ? "New assistant next action" : action === "follow-up" ? "Channel" : action === "link" ? "URL" : action === "option" ? "Description" : "Recommendation"}<input type={action === "link" ? "url" : "text"} value={secondary} onChange={(event) => setSecondary(event.target.value)} required={action === "link" || action === "approval"} placeholder={action === "link" ? "https://" : undefined} /></label>
         {!["movement", "link"].includes(action) && <label>{action === "follow-up" ? "Draft note" : action === "option" ? "Why it fits" : "Why now"}<textarea value={tertiary} onChange={(event) => setTertiary(event.target.value)} rows={4} /></label>}
+        {action === "approval" && <><label>Alternative 1<input value={alternativeA} onChange={(event) => setAlternativeA(event.target.value)} placeholder="A viable fallback" /></label><label>Alternative 2<input value={alternativeB} onChange={(event) => setAlternativeB(event.target.value)} placeholder="Another tradeoff" /></label><label>Amount<input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><label>Urgency<select value={urgency} onChange={(event) => setUrgency(event.target.value as typeof urgency)}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option></select></label></>}
         {action === "follow-up" && <p className="permission-note">This records a drafted follow-up and date. It does not send a message.</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>

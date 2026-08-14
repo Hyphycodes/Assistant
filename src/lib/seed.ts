@@ -1,8 +1,12 @@
-import type { AppState, Thing } from "./domain";
+import type { AppState, Thing, ThingSection } from "./domain";
 
 const date = (day: string) => `2026-${day}T15:00:00-05:00`;
 
-export const seedThings: Thing[] = [
+type SeedThing = Omit<Thing, "items" | "customFields" | "sections"> & {
+  sections: Array<Omit<ThingSection, "position">>;
+};
+
+const baseThings: SeedThing[] = [
   {
     id: "camping-red-oak",
     title: "Camping — Red Oak",
@@ -31,19 +35,22 @@ export const seedThings: Thing[] = [
     links: [],
     followUps: [],
     sections: [
-      { id: "camp-explore", title: "Still to explore", body: "Tasteful exterior lighting, softer light inside the tent, and a small table beside the cot." },
-      { id: "camp-owned", title: "Already owned", body: "Cot · projector · screen. Demo records only—no purchase is implied." },
-      { id: "camp-demo-order", title: "Demo order — not live", body: "Yeti bottle · delivered demo state · return by Sep 14 · reference DEMO-YETI-001. This is fictional seed data, not a real purchase." },
+      { id: "camp-tent", title: "Tent Setup", body: "CORE tent, cot, rug, lighting, bedside table, and shoe storage." },
+      { id: "camp-food", title: "Food", body: "Plan simple meals and cooler setup for fifteen people." },
+      { id: "camp-entertainment", title: "Entertainment", body: "Projector and screen are already owned." },
+      { id: "camp-hiking", title: "Hiking", body: "Choose one group-friendly trail." },
+      { id: "camp-power", title: "Power", body: "Confirm the projector and lighting load before buying a battery." },
+      { id: "camp-packing", title: "Packing", body: "Keep a shared, editable packing list." },
     ],
   },
   {
     id: "oasis-paint-sip",
-    title: "Oasis Paint & Sip",
+    title: "Mamma Mia — Dancing Queen",
     summary: "An ABBA-inspired night at Oasis Kitchen & Bar. The concept is set; instructor and supplies need final approval.",
     ownerNextAction: "Approve Vanessa for Sep 12 at $200.",
     assistantNextAction: "Prepare the supply plan after Jerry decides on Vanessa.",
     category: "Business",
-    status: "Needs You",
+    status: "Moving",
     permission: "APPROVE",
     keepMoving: true,
     surpriseMe: false,
@@ -61,9 +68,13 @@ export const seedThings: Thing[] = [
     links: [],
     followUps: [{ id: "followup-adrian", waitingOn: "Adrian", date: date("08-15"), channel: "Draft message", note: "Confirm venue capacity before promotion begins.", state: "drafted" }],
     sections: [
-      { id: "oasis-concept", title: "The concept", body: "Dancing Queen: an ABBA-inspired social painting night with warm lighting, a guided piece, and a short after-paint playlist." },
-      { id: "oasis-economics", title: "Event shape", body: "Working capacity: 40 guests · ticket direction: $45 · instructor quote: $200 · venue and supply costs still need confirmation before any revenue projection is treated as real." },
-      { id: "oasis-promotion", title: "Promotion direction", body: "Draft an ABBA-inspired visual and a short venue announcement after the instructor decision. No post or message has been sent." },
+      { id: "oasis-concept", title: "Concept", body: "Dancing Queen: an ABBA-inspired social painting night with warm lighting, a guided piece, and a short after-paint playlist." },
+      { id: "oasis-vendors", title: "Vendors", body: "Vanessa is the leading instructor at a quoted $200." },
+      { id: "oasis-promotion", title: "Promotion", body: "Draft an ABBA-inspired visual and venue announcement. Nothing has been posted." },
+      { id: "oasis-budget", title: "Budget", body: "Working capacity: 60 · ticket direction: $40 · venue and supply costs remain unconfirmed." },
+      { id: "oasis-operations", title: "Operations", body: "Confirm materials, room layout, timing, and check-in." },
+      { id: "oasis-adrian", title: "Needs Adrian", body: "Confirm venue capacity and operational constraints." },
+      { id: "oasis-jerry", title: "Needs Jerry", body: "Approve Vanessa and the initial event direction." },
     ],
   },
   {
@@ -185,12 +196,34 @@ export const seedThings: Thing[] = [
   },
 ];
 
+export const seedThings: Thing[] = baseThings.map((thing) => ({
+  ...thing,
+  owner: thing.owner ?? "Jerry",
+  priority: thing.priority ?? "normal",
+  tags: thing.tags ?? [],
+  relatedThingIds: thing.relatedThingIds ?? [],
+  collaborators: thing.collaborators ?? ["Maria"],
+  sections: thing.sections.map((section, position) => ({ ...section, position })),
+  items: thing.id === "camping-red-oak" ? [
+    ["CORE 10-person cabin tent", "product"], ["cot", "checklist"], ["tasteful campsite lighting", "idea"], ["compact bedside table", "product"], ["shoe rack / outdoor folding table", "product"], ["tent rug", "product"],
+  ].map(([title, type], position) => ({ id: `camp-item-${position + 1}`, sectionId: "camp-tent", title, type: type as Thing["items"][number]["type"], status: "open", position })) : [],
+  customFields: (thing.id === "oasis-paint-sip" ? [
+    { id: "oasis-capacity", key: "capacity", label: "Capacity", type: "number", value: 60, position: 0 },
+    { id: "oasis-ticket", key: "ticket_price", label: "Ticket Price", type: "currency", value: 40, position: 1 },
+    { id: "oasis-instructor", key: "instructor", label: "Instructor", type: "contact", value: "Vanessa", position: 2 },
+    { id: "oasis-venue", key: "venue", label: "Venue", type: "short_text", value: "Oasis Kitchen & Bar", position: 3 },
+  ] : []) as Thing["customFields"],
+})).concat({
+  id: "camping-tent-setup", title: "Tent Setup", subtitle: "Subthing of Camping — Red Oak", description: "The physical sleep and shelter setup, separated so it can move independently.", summary: "Build a comfortable, intentional tent interior around the CORE cabin tent.", ownerNextAction: "Approve the main tent plan.", assistantNextAction: "Turn the selected gear into a setup checklist.", category: "Trips & Experiences", status: "Moving", permission: "APPROVE", keepMoving: true, surpriseMe: false, archived: false, lastMoved: date("08-13"), owner: "Jerry", collaborators: ["Maria"], priority: "high", tags: ["camping", "setup"], parentId: "camping-red-oak", relatedThingIds: [], dates: [], contacts: [], options: [], notes: [], links: [], followUps: [], sections: [{ id: "tent-layout", title: "Layout", body: "Cot, bedside table, shoe storage, rug, and clear walking space.", position: 0 }, { id: "tent-lighting", title: "Lighting", body: "Warm, low-output lighting inside and around the entrance.", position: 1 }], items: [], customFields: [],
+});
+
 export const initialState: AppState = {
-  schemaVersion: 2,
+  schemaVersion: 3,
+  revision: 1,
   things: seedThings,
   approvals: [
     { id: "approve-vanessa", thingId: "oasis-paint-sip", title: "Approve Vanessa for the Paint & Sip", context: "Vanessa can lead the event for $200 and is available Sep 12.", recommendation: "Approve her—she has the right group experience and fits the budget.", whyNow: "The event is one month out and supplies depend on the instructor plan.", actionLabel: "Approve $200", meta: "$200 · Sep 12 · Vanessa", status: "pending" },
-    { id: "approve-tent", thingId: "camping-red-oak", title: "Choose the main tent", context: "The CORE 10-person cabin tent fits the cot, projector setup, and two sleepers.", recommendation: "Buy the CORE tent if the packed size works for the car.", whyNow: "Camping is approaching and the rest of the layout depends on it.", actionLabel: "Approve purchase plan", meta: "$349.99 · Purchase not placed", status: "pending" },
+    { id: "approve-tent", thingId: "camping-red-oak", title: "Camping chair", context: "Approve Snow Peak Low Beach Chair for $169?", recommendation: "Best balance of comfort and clean design. Kermit Chair looks stronger but is nearly twice the cost.", whyNow: "The campsite layout and packing list depend on the chair direction.", actionLabel: "Approve $169", meta: "$169 · Purchase not placed", status: "pending", amount: 169, currency: "USD", urgency: "normal", options: [{ id: "chair-approve", label: "Approve Snow Peak", description: "Best balance of comfort and clean design." }, { id: "chair-keep-looking", label: "Keep looking" }, { id: "chair-save", label: "Save for later" }], responses: [] },
     { id: "approve-trip", thingId: "christmas-trip", title: "Review the destination shortlist", context: "Italy, Spain, and Costa Rica are the three strongest directions.", recommendation: "Start with Italy; keep Costa Rica as the warmer backup.", whyNow: "Holiday flight windows are worth narrowing before prices tighten.", actionLabel: "Review shortlist", meta: "3 destinations · December 2026", status: "pending" },
     { id: "approve-birthday", thingId: "birthday", title: "Choose the birthday energy", context: "The useful decision is intimate dinner, one-night escape, or bigger group night.", recommendation: "Pick the feeling first; planning can stay light after that.", whyNow: "A direction unlocks every other detail.", actionLabel: "Choose direction", meta: "Owner-only · Sep 8", status: "pending" },
   ],
@@ -205,4 +238,23 @@ export const initialState: AppState = {
     { id: "inbox-1", type: "voice", raw: "For camping maybe we need tasteful lights around the tent, something inside, and a small table next to the cot. I don’t want it looking corny.", status: "needs_review", createdAt: date("08-13"), proposal: { title: "Camping — Red Oak", summary: "Explore exterior and interior lighting plus a small cot-side table; keep the campsite tasteful.", category: "Trips & Experiences", status: "Moving", permission: "GO", relatedThingId: "camping-red-oak", extracted: ["Exterior ambient lighting", "Interior tent lighting", "Small cot-side table", "Constraint: intentional, not corny"], confidence: "High confidence" } },
     { id: "inbox-2", type: "link", raw: "https://example.com/wisconsin-cabin — might be fire for fall. Look into it whenever.", status: "needs_review", createdAt: date("08-12"), proposal: { title: "Wisconsin Cabin Weekend", summary: "Look into a possible cabin weekend in Wisconsin this fall.", category: "Trips & Experiences", status: "Someday", permission: "GO", extracted: ["Location: Wisconsin", "Timing: fall, date uncertain", "Intent: explore a cabin weekend"], confidence: "Please check" } },
   ],
+  contacts: [
+    { id: "vanessa", name: "Vanessa", context: "Artist / Painting Instructor", organization: "Independent", location: "Chicago", note: "Art degree · teaches kids · quoted $200", tags: ["vendor", "artist"] },
+    { id: "adrian", name: "Adrian", context: "Owner", organization: "Oasis Kitchen & Bar", location: "Lockport", tags: ["venue", "restaurant"] },
+    { id: "jordan", name: "Jordan", context: "Camping friend", tags: ["friend", "camping"] },
+  ],
+  preferences: [
+    { id: "pref-camp-aesthetic", domain: "camping gear", attribute: "aesthetic", statement: "Avoid cheap or corny campsite styling.", sentiment: "dislikes", sourceType: "confirmed note", sourceId: "camp-note-1", confidence: 1, confirmed: true, createdAt: date("08-12") },
+  ],
+  templates: [
+    { id: "template-blank", name: "Blank", description: "Start with an open brief.", type: "blank", sections: [], fields: [] },
+    { id: "template-trip", name: "Trip", description: "Destinations, travel, stays, people, and budget.", type: "trip", sections: [{ title: "Destinations" }, { title: "Travel" }, { title: "Stays" }, { title: "People" }, { title: "Budget" }, { title: "Need Decision" }], fields: [{ label: "Budget", type: "currency" }, { label: "Travelers", type: "number" }] },
+    { id: "template-event", name: "Event", description: "Concept, vendors, promotion, budget, and operations.", type: "event", sections: [{ title: "Concept" }, { title: "Vendors" }, { title: "Promotion" }, { title: "Budget" }, { title: "Operations" }], fields: [{ label: "Capacity", type: "number" }, { label: "Ticket Price", type: "currency" }] },
+    { id: "template-shopping", name: "Shopping Project", description: "Research, shortlist, saved, bought, and rejected.", type: "shopping", sections: [{ title: "Research" }, { title: "Shortlist" }, { title: "Saved" }, { title: "Bought" }, { title: "Rejected" }], fields: [{ label: "Budget", type: "currency" }] },
+    { id: "template-personal", name: "Personal Admin", description: "Context, next actions, documents, and follow-up.", type: "personal_admin", sections: [{ title: "Context" }, { title: "Next Actions" }, { title: "Documents" }, { title: "Follow-up" }], fields: [] },
+    { id: "template-business", name: "Business Initiative", description: "Goals, workstreams, people, budget, and decisions.", type: "business", sections: [{ title: "Goal" }, { title: "Workstreams" }, { title: "People" }, { title: "Budget" }, { title: "Decisions" }], fields: [] },
+    { id: "template-restaurant", name: "Restaurant Event", description: "Venue-ready event structure.", type: "restaurant_event", sections: [{ title: "Concept" }, { title: "Venue" }, { title: "Vendors" }, { title: "Promotion" }, { title: "Operations" }, { title: "Needs Jerry" }], fields: [{ label: "Capacity", type: "number" }, { label: "Ticket Price", type: "currency" }] },
+    { id: "template-party", name: "Party", description: "Guest experience, food, music, setup, and what worked.", type: "party", sections: [{ title: "Guest List" }, { title: "Food" }, { title: "Music" }, { title: "Setup" }, { title: "What Worked" }], fields: [] },
+  ],
+  orders: [],
 };

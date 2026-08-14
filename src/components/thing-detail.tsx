@@ -16,13 +16,13 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  Save,
   Send,
   Trash2,
   UserRound,
 } from "lucide-react";
 import { useApp } from "./app-provider";
 import { ThingEditor } from "./thing-editor";
+import { ThingWorkspace } from "./thing-workspace";
 import {
   ApprovalCard,
   EmptyState,
@@ -47,7 +47,6 @@ export function ThingDetail({
   const [message, setMessage] = useState("");
   const [showStatus, setShowStatus] = useState(false);
   const [editingThing, setEditingThing] = useState(false);
-  const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [linkOpen, setLinkOpen] = useState(false);
@@ -94,12 +93,6 @@ export function ThingDetail({
     const result = await app.setThingStatus(id, status);
     setMessage(result.message);
     setShowStatus(false);
-  }
-
-  async function saveSection(sectionId: string, title: string) {
-    const result = await app.updateSection(id, sectionId, title, draft);
-    setMessage(result.message);
-    if (result.ok) setEditingSection(null);
   }
 
   async function saveNote(noteId: string) {
@@ -158,6 +151,7 @@ export function ThingDetail({
             <PermissionBadge permission={thing.permission} />
           </div>
           <h1>{thing.title}</h1>
+          {thing.subtitle && <p className="thing-subtitle">{thing.subtitle}</p>}
           {thing.location && (
             <p>
               <MapPin size={14} />
@@ -199,6 +193,7 @@ export function ThingDetail({
               <MoreHorizontal />
             </summary>
             <div>
+              <button onClick={async () => setMessage((await app.duplicateThing(id)).message)}><Plus size={15} />Duplicate Thing</button>
               <button
                 disabled={role !== "owner"}
                 onClick={async () => {
@@ -249,6 +244,8 @@ export function ThingDetail({
           <section id="overview" className="snapshot-card">
             <p className="eyebrow">The working brief</p>
             <p className="snapshot-copy">{thing.summary}</p>
+            {thing.description && <p className="snapshot-description">{thing.description}</p>}
+            <div className="thing-facts"><span>Owner · {thing.owner ?? "Jerry"}</span><span>Priority · {thing.priority ?? "normal"}</span>{thing.budget?.amount !== undefined && <span>Budget · {new Intl.NumberFormat("en-US", { style: "currency", currency: thing.budget.currency }).format(thing.budget.amount)}</span>}{thing.tags?.map((tag) => <span key={tag}>#{tag}</span>)}</div>
             <div className="next-action-panel">
               <div>
                 <span>Owner next</span>
@@ -299,61 +296,7 @@ export function ThingDetail({
               </p>
             )}
           </section>
-          {thing.sections.map((section) => (
-            <section className="detail-section prose-section" key={section.id}>
-              <div className="detail-section-heading">
-                <div>
-                  <p className="eyebrow">Context</p>
-                  <h2>{section.title}</h2>
-                </div>
-                <button
-                  className="icon-button"
-                  onClick={() => {
-                    setEditingSection(section.id);
-                    setDraft(section.body);
-                  }}
-                  aria-label={`Edit ${section.title}`}
-                >
-                  <Pencil size={15} />
-                </button>
-              </div>
-              {editingSection === section.id ? (
-                <div className="inline-editor">
-                  <textarea
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                  />
-                  <div>
-                    <button
-                      className="button quiet"
-                      onClick={() => setEditingSection(null)}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="button primary"
-                      onClick={() => saveSection(section.id, section.title)}
-                    >
-                      <Save size={14} />
-                      Save
-                    </button>
-                    <button
-                      className="button quiet danger"
-                      onClick={async () => {
-                        const result = await app.removeSection(id, section.id);
-                        setMessage(result.message);
-                      }}
-                    >
-                      <Trash2 size={14} />
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p>{section.body}</p>
-              )}
-            </section>
-          ))}
+          <ThingWorkspace thing={thing} onMessage={setMessage} />
           <section id="links-options" className="detail-section">
             <div className="detail-section-heading">
               <div>
@@ -502,6 +445,7 @@ export function ThingDetail({
                       {option.price && (
                         <strong className="option-price">{option.price}</strong>
                       )}
+                      <label className="product-status">Lifecycle<select value={option.status} onChange={async (event) => setMessage((await app.updateProductStatus(id, option.id, event.target.value as typeof option.status)).message)}>{["recommended", "considering", "saved", "rejected", "planned", "favorite", "approved", "ordered", "delivered", "keeping", "returning", "returned"].map((status) => <option key={status}>{status}</option>)}</select></label>
                       {option.recommendation && (
                         <div className="option-take">
                           <span>Why it fits</span>
@@ -524,6 +468,7 @@ export function ThingDetail({
                         </a>
                       )}
                       <div className="option-edit-actions">
+                        {!app.orders.some((order) => order.optionId === option.id) && <button onClick={async () => setMessage((await app.createOrder({ thingId: id, optionId: option.id, retailer: option.retailer, status: option.status === "ordered" ? "ordered" : "planned" })).message)}>Track order</button>}
                         <button
                           onClick={() => {
                             setEditingOption(option.id);
@@ -552,6 +497,7 @@ export function ThingDetail({
                 ))}
               </div>
             )}
+            {app.orders.filter((order) => order.thingId === id).length > 0 && <div className="order-list"><h3>Orders & returns</h3>{app.orders.filter((order) => order.thingId === id).map((order) => <article key={order.id}><span>{order.retailer ?? thing.options.find((option) => option.id === order.optionId)?.name ?? "Order"}</span><select value={order.status} onChange={async (event) => setMessage((await app.updateOrder({ ...order, status: event.target.value as typeof order.status })).message)}>{["planned", "approved", "ordered", "shipped", "delivered", "returning", "returned", "cancelled"].map((status) => <option key={status}>{status}</option>)}</select></article>)}</div>}
           </section>
           <section id="notes" className="detail-section">
             <div className="detail-section-heading">
@@ -677,6 +623,7 @@ export function ThingDetail({
                         minute: "2-digit",
                       })}
                     </small>
+                    {(item.before !== undefined || item.after !== undefined) && <details className="change-details"><summary>See exact change</summary><div>{item.before !== undefined && <pre><strong>Before</strong>{JSON.stringify(item.before, null, 2)}</pre>}{item.after !== undefined && <pre><strong>After</strong>{JSON.stringify(item.after, null, 2)}</pre>}</div></details>}
                   </div>
                 </article>
               ))}

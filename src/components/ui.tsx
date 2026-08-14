@@ -88,13 +88,17 @@ export function ApprovalCard({
   const [pending, setPending] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(approval.title);
+  const [responding, setResponding] = useState<"reject" | "question" | "alternatives" | null>(null);
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
   const thing = things.find((item) => item.id === approval.thingId);
 
-  async function resolve(status: Approval["status"]) {
+  async function resolve(status: Approval["status"], responseReason?: string, responseNote?: string) {
     setPending(true);
-    const result = await resolveApproval(approval.id, status);
+    const result = await resolveApproval(approval.id, status, responseReason, responseNote);
     setPending(false);
     onResolved?.(result.message);
+    if (result.ok) { setResponding(null); setReason(""); setNote(""); }
   }
 
   async function saveEdit() {
@@ -130,6 +134,8 @@ export function ApprovalCard({
         </p>
       )}
       <p className="approval-meta">{approval.meta}</p>
+      {approval.amount !== undefined && <p className="approval-amount">${approval.amount.toLocaleString()} {approval.currency ?? "USD"} · {approval.urgency ?? "normal"} urgency</p>}
+      {approval.options?.length ? <div className="approval-options">{approval.options.map((option, index) => <div key={option.id}><span>{index === 0 ? "Recommended" : `Alternative ${index}`}</span><strong>{option.label}</strong>{option.description && <p>{option.description}</p>}</div>)}</div> : null}
       {thing && (
         <p className="approval-next">
           <strong>Owner next:</strong> {thing.ownerNextAction}
@@ -164,14 +170,14 @@ export function ApprovalCard({
         </button>
         <button
           className="button quiet"
-          onClick={() => resolve("held")}
+          onClick={() => resolve("held", "Save for later")}
           disabled={role !== "owner" || pending}
         >
           Hold
         </button>
         <button
           className="button quiet"
-          onClick={() => resolve("rejected")}
+          onClick={() => setResponding("reject")}
           disabled={role !== "owner" || pending}
         >
           Reject
@@ -184,10 +190,13 @@ export function ApprovalCard({
           <Pencil size={14} />
           Edit
         </button>
+        <button className="button quiet" onClick={() => setResponding("question")} disabled={role !== "owner" || pending}>Ask a question</button>
+        <button className="button quiet" onClick={() => setResponding("alternatives")} disabled={role !== "owner" || pending}>Show alternatives</button>
         <Link className="text-link" href={`/things/${approval.thingId}`}>
           Open Thing <ArrowRight size={14} />
         </Link>
       </div>
+      {responding && <div className="approval-response"><strong>{responding === "reject" ? "Why isn’t this right?" : responding === "question" ? "What should Maria clarify?" : "What should the alternatives change?"}</strong>{responding === "reject" && <div className="reason-chips">{["Too expensive", "Wrong style", "Bad timing", "Not needed", "Other"].map((item) => <button type="button" className={reason === item ? "active" : ""} key={item} onClick={() => setReason(item)}>{item}</button>)}</div>}<textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional context so the next recommendation is better" /><div className="compact-actions"><button className="button quiet" onClick={() => setResponding(null)}>Cancel</button><button className="button primary" disabled={responding === "reject" && !reason} onClick={() => void resolve(responding === "reject" ? "rejected" : "held", responding === "reject" ? reason : responding === "question" ? "Question asked" : "Alternatives requested", note)}>Send response</button></div></div>}
       {role !== "owner" && (
         <p className="permission-note">
           Prepared for Jerry · only the owner can resolve this.

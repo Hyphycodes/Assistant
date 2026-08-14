@@ -15,6 +15,8 @@ import {
 function initialValues(thing?: Thing): ThingEditInput {
   return {
     title: thing?.title ?? "",
+    subtitle: thing?.subtitle ?? "",
+    description: thing?.description ?? "",
     summary: thing?.summary ?? "",
     ownerNextAction: thing?.ownerNextAction ?? "",
     assistantNextAction: thing?.assistantNextAction ?? "",
@@ -22,6 +24,11 @@ function initialValues(thing?: Thing): ThingEditInput {
     status: thing?.status ?? "Exploring",
     permission: thing?.permission ?? "GO",
     location: thing?.location ?? "",
+    owner: thing?.owner ?? "Jerry",
+    priority: thing?.priority ?? "normal",
+    budgetAmount: thing?.budget?.amount,
+    budgetCurrency: thing?.budget?.currency ?? "USD",
+    tags: thing?.tags ?? [],
     keepMoving: thing?.keepMoving ?? false,
     surpriseMe: thing?.surpriseMe ?? false,
     date: thing?.dates[0],
@@ -32,10 +39,14 @@ export function ThingEditor({
   thing,
   onClose,
   onSaved,
+  parentId,
+  templateId,
 }: {
   thing?: Thing;
   onClose: () => void;
   onSaved?: (id?: string) => void;
+  parentId?: string;
+  templateId?: string;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const { createThing, updateThing, role } = useApp();
@@ -74,7 +85,7 @@ export function ThingEditor({
     setError("");
     const result = thing
       ? await updateThing(thing.id, parsed.data)
-      : await createThing(parsed.data);
+      : await createThing(parsed.data, { parentId, templateId });
     setPending(false);
     if (!result.ok) {
       setError(result.message);
@@ -113,6 +124,8 @@ export function ThingEditor({
           <fieldset>
             <legend>Core brief</legend>
             <label className="field wide">Title<input autoFocus value={values.title} disabled={ownerLocked} onChange={(event) => set("title", event.target.value)} required /></label>
+            <label className="field wide">Subtitle<input value={values.subtitle ?? ""} onChange={(event) => set("subtitle", event.target.value)} placeholder="A useful second line" /></label>
+            <label className="field wide">Description<textarea value={values.description ?? ""} onChange={(event) => set("description", event.target.value)} rows={3} placeholder="The durable brief, context, and intent" /></label>
             <label className="field wide">Snapshot<textarea value={values.summary} onChange={(event) => set("summary", event.target.value)} rows={4} /></label>
             <label className="field wide">Owner next action<input value={values.ownerNextAction} onChange={(event) => set("ownerNextAction", event.target.value)} /></label>
             <label className="field wide">Assistant next action<input value={values.assistantNextAction} onChange={(event) => set("assistantNextAction", event.target.value)} /></label>
@@ -120,6 +133,11 @@ export function ThingEditor({
             <label className="field">Status<select value={values.status} onChange={(event) => set("status", event.target.value as ThingEditInput["status"])}>{statusValues.map((value) => <option key={value}>{value}</option>)}</select></label>
             <label className="field">Permission<select value={values.permission} disabled={ownerLocked} onChange={(event) => set("permission", event.target.value as ThingEditInput["permission"])}>{permissionValues.map((value) => <option key={value}>{value}</option>)}</select></label>
             <label className="field">Location<input value={values.location ?? ""} onChange={(event) => set("location", event.target.value)} /></label>
+            <label className="field">Owner<select value={values.owner} onChange={(event) => set("owner", event.target.value as "Jerry" | "Maria")}><option>Jerry</option><option>Maria</option></select></label>
+            <label className="field">Priority<select value={values.priority} onChange={(event) => set("priority", event.target.value as "low" | "normal" | "high")}><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option></select></label>
+            <label className="field">Budget<input type="number" min="0" step="0.01" value={values.budgetAmount ?? ""} onChange={(event) => set("budgetAmount", event.target.value === "" ? undefined : Number(event.target.value))} /></label>
+            <label className="field">Currency<input maxLength={3} value={values.budgetCurrency ?? "USD"} onChange={(event) => set("budgetCurrency", event.target.value.toUpperCase())} /></label>
+            <label className="field wide">Tags<input value={(values.tags ?? []).join(", ")} onChange={(event) => set("tags", event.target.value.split(",").map((tag) => tag.trim()).filter(Boolean))} placeholder="travel, fall, family" /></label>
           </fieldset>
           <fieldset>
             <legend>Operating signals</legend>
