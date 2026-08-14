@@ -1,39 +1,112 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, Clock3, Flame, Sparkles } from "lucide-react";
+import { useState } from "react";
+import {
+  ArrowRight,
+  Check,
+  Clock3,
+  Flame,
+  Pencil,
+  Sparkles,
+} from "lucide-react";
 import type { Approval, Permission, Thing, ThingStatus } from "@/lib/domain";
 import { formatDateRange, relativeMovement } from "@/lib/format";
 import { useApp } from "./app-provider";
 
-export function PageHeader({ eyebrow, title, intro, action }: { eyebrow?: string; title: string; intro?: string; action?: React.ReactNode }) {
+export function PageHeader({
+  eyebrow,
+  title,
+  intro,
+  action,
+}: {
+  eyebrow?: string;
+  title: string;
+  intro?: string;
+  action?: React.ReactNode;
+}) {
   return (
     <header className="page-header">
-      <div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1>{intro && <p className="page-intro">{intro}</p>}</div>
+      <div>
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h1>{title}</h1>
+        {intro && <p className="page-intro">{intro}</p>}
+      </div>
       {action && <div className="page-action">{action}</div>}
     </header>
   );
 }
 
 export function StatusBadge({ status }: { status: ThingStatus }) {
-  return <span className={`status-badge status-${status.toLowerCase().replace(/\s/g, "-")}`}><i />{status}</span>;
+  return (
+    <span
+      className={`status-badge status-${status.toLowerCase().replace(/\s/g, "-")}`}
+    >
+      <i />
+      {status}
+    </span>
+  );
 }
 
 export function PermissionBadge({ permission }: { permission: Permission }) {
-  return <span className={`permission-badge permission-${permission.toLowerCase()}`}>{permission}</span>;
+  return (
+    <span className={`permission-badge permission-${permission.toLowerCase()}`}>
+      {permission}
+    </span>
+  );
 }
 
-export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
-  return <div className="empty-state"><Sparkles size={22} /><h3>{title}</h3><p>{body}</p>{action}</div>;
+export function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <Sparkles size={22} />
+      <h3>{title}</h3>
+      <p>{body}</p>
+      {action}
+    </div>
+  );
 }
 
-export function ApprovalCard({ approval, compact = false, onResolved }: { approval: Approval; compact?: boolean; onResolved?: (message: string) => void }) {
-  const { resolveApproval, role, things } = useApp();
+export function ApprovalCard({
+  approval,
+  compact = false,
+  onResolved,
+}: {
+  approval: Approval;
+  compact?: boolean;
+  onResolved?: (message: string) => void;
+}) {
+  const { resolveApproval, updateApproval, role, things } = useApp();
+  const [pending, setPending] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(approval.title);
   const thing = things.find((item) => item.id === approval.thingId);
 
-  function resolve(status: Approval["status"]) {
-    const ok = resolveApproval(approval.id, status);
-    onResolved?.(ok ? (status === "approved" ? "Approved. Maria can keep this moving." : status === "held" ? "Held for later." : "Declined and recorded.") : "Only the owner can resolve this decision.");
+  async function resolve(status: Approval["status"]) {
+    setPending(true);
+    const result = await resolveApproval(approval.id, status);
+    setPending(false);
+    onResolved?.(result.message);
+  }
+
+  async function saveEdit() {
+    setPending(true);
+    const result = await updateApproval(
+      approval.id,
+      title,
+      approval.recommendation,
+    );
+    setPending(false);
+    if (result.ok) setEditing(false);
+    onResolved?.(result.message);
   }
 
   return (
@@ -44,41 +117,190 @@ export function ApprovalCard({ approval, compact = false, onResolved }: { approv
       </div>
       <h3>{approval.title}</h3>
       <p className="approval-context">{approval.context}</p>
-      <div className="recommendation"><span>My take</span><p>{approval.recommendation}</p></div>
-      {!compact && <p className="why-now"><Clock3 size={14} /><span><strong>Why now:</strong> {approval.whyNow}</span></p>}
-      <p className="approval-meta">{approval.meta}</p>
-      <div className="approval-actions">
-        <button className="button primary" onClick={() => resolve("approved")} disabled={role !== "owner"}><Check size={16} />{approval.actionLabel}</button>
-        <button className="button quiet" onClick={() => resolve("held")} disabled={role !== "owner"}>Hold</button>
-        <Link className="text-link" href={`/things/${approval.thingId}`}>Open Thing <ArrowRight size={14} /></Link>
+      <div className="recommendation">
+        <span>My take</span>
+        <p>{approval.recommendation}</p>
       </div>
-      {role !== "owner" && <p className="permission-note">Prepared for Jerry · only the owner can resolve this.</p>}
+      {!compact && (
+        <p className="why-now">
+          <Clock3 size={14} />
+          <span>
+            <strong>Why now:</strong> {approval.whyNow}
+          </span>
+        </p>
+      )}
+      <p className="approval-meta">{approval.meta}</p>
+      {thing && (
+        <p className="approval-next">
+          <strong>Owner next:</strong> {thing.ownerNextAction}
+        </p>
+      )}
+      {editing && (
+        <div className="approval-edit">
+          <label>
+            Decision wording
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+            />
+          </label>
+          <button
+            className="button quiet"
+            onClick={saveEdit}
+            disabled={pending || !title.trim()}
+          >
+            Save edit
+          </button>
+        </div>
+      )}
+      <div className="approval-actions">
+        <button
+          className="button primary"
+          onClick={() => resolve("approved")}
+          disabled={role !== "owner" || pending}
+        >
+          <Check size={16} />
+          {approval.actionLabel}
+        </button>
+        <button
+          className="button quiet"
+          onClick={() => resolve("held")}
+          disabled={role !== "owner" || pending}
+        >
+          Hold
+        </button>
+        <button
+          className="button quiet"
+          onClick={() => resolve("rejected")}
+          disabled={role !== "owner" || pending}
+        >
+          Reject
+        </button>
+        <button
+          className="button quiet"
+          onClick={() => setEditing(!editing)}
+          disabled={role !== "owner" || pending}
+        >
+          <Pencil size={14} />
+          Edit
+        </button>
+        <Link className="text-link" href={`/things/${approval.thingId}`}>
+          Open Thing <ArrowRight size={14} />
+        </Link>
+      </div>
+      {role !== "owner" && (
+        <p className="permission-note">
+          Prepared for Jerry · only the owner can resolve this.
+        </p>
+      )}
     </article>
   );
 }
 
-export function ThingRow({ thing }: { thing: Thing }) {
+export function ThingRow({
+  thing,
+  href,
+  counts,
+  onEdit,
+}: {
+  thing: Thing;
+  href?: string;
+  counts?: string;
+  onEdit?: () => void;
+}) {
+  const { role, renderedAt } = useApp();
   return (
-    <Link href={`/things/${thing.id}`} className="thing-row">
+    <article className="thing-row">
+      <Link
+        href={href ?? `/things/${thing.id}`}
+        className="thing-row-hit"
+        aria-label={`Open ${thing.title}`}
+      />
       <div className="thing-row-main">
-        <div className="thing-row-title"><h3>{thing.title}</h3>{thing.keepMoving && <Flame size={14} aria-label="Keep this moving" />}{thing.surpriseMe && <Sparkles size={14} aria-label="Surprise me" />}</div>
+        <div className="thing-row-title">
+          <h2>{thing.title}</h2>
+          {thing.keepMoving && (
+            <Flame size={14} aria-label="Keep this moving" />
+          )}
+          {thing.surpriseMe && <Sparkles size={14} aria-label="Surprise me" />}
+        </div>
         <p>{thing.summary}</p>
+        <p className="thing-next-action">
+          <strong>
+            {role === "owner" ? "Your next move" : "Assistant next"}:
+          </strong>{" "}
+          {role === "owner" ? thing.ownerNextAction : thing.assistantNextAction}
+        </p>
+        {thing.waitingOn && (
+          <p className="thing-blocker">
+            <strong>Waiting on:</strong> {thing.waitingOn}
+          </p>
+        )}
+        {counts && <small>{counts}</small>}
       </div>
       <div className="thing-row-meta">
         <StatusBadge status={thing.status} />
-        <span>{thing.dates[0] ? formatDateRange(thing.dates[0].start, thing.dates[0].end, thing.dates[0].precision) : "No fixed date"}</span>
-        <span>{relativeMovement(thing.lastMoved)}</span>
+        <span>
+          {thing.dates[0]
+            ? formatDateRange(
+                thing.dates[0].start,
+                thing.dates[0].end,
+                thing.dates[0].precision,
+              )
+            : "No fixed date"}
+        </span>
+        <span>{relativeMovement(thing.lastMoved, renderedAt)}</span>
       </div>
-      <ArrowRight className="thing-row-arrow" size={17} />
-    </Link>
+      {onEdit ? (
+        <button
+          className="icon-button thing-row-edit"
+          onClick={onEdit}
+          aria-label={`Edit ${thing.title}`}
+        >
+          <Pencil size={16} />
+        </button>
+      ) : (
+        <ArrowRight className="thing-row-arrow" size={17} />
+      )}
+    </article>
   );
 }
 
-export function Toggle({ checked, onChange, label, description, icon }: { checked: boolean; onChange: () => void; label: string; description?: string; icon?: "flame" | "sparkles" }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  description,
+  icon,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  description?: string;
+  icon?: "flame" | "sparkles";
+}) {
   return (
-    <button type="button" role="switch" aria-checked={checked} className={`toggle-control ${checked ? "on" : ""}`} onClick={onChange}>
-      <span className="toggle-copy">{icon === "flame" ? <Flame size={16} /> : icon === "sparkles" ? <Sparkles size={16} /> : null}<span><strong>{label}</strong>{description && <small>{description}</small>}</span></span>
-      <span className="switch-track"><i /></span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      className={`toggle-control ${checked ? "on" : ""}`}
+      onClick={onChange}
+    >
+      <span className="toggle-copy">
+        {icon === "flame" ? (
+          <Flame size={16} />
+        ) : icon === "sparkles" ? (
+          <Sparkles size={16} />
+        ) : null}
+        <span>
+          <strong>{label}</strong>
+          {description && <small>{description}</small>}
+        </span>
+      </span>
+      <span className="switch-track">
+        <i />
+      </span>
     </button>
   );
 }

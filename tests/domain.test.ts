@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canResolveApproval, canTransition, categoryFromCapture, makeProposal, permissionFromCapture, titleFromCapture } from "@/lib/domain";
+import { canResolveApproval, canTransition, categoryFromCapture, makeProposal, parseThingFilter, permissionFromCapture, thingEditSchema, titleFromCapture } from "@/lib/domain";
 
 describe("Thing state transitions", () => {
   it("allows useful forward movement", () => {
@@ -40,5 +40,17 @@ describe("safe deterministic capture review", () => {
     expect(titleFromCapture(raw)).toBe("Wisconsin Cabin Weekend");
     expect(categoryFromCapture(raw)).toBe("Trips & Experiences");
     expect(makeProposal(raw)?.status).toBe("Someday");
+  });
+});
+
+describe("streamlined Thing inputs", () => {
+  it("keeps list filters on an explicit allowlist", () => {
+    expect(parseThingFilter("needs-you")).toBe("needs-you");
+    expect(parseThingFilter("anything-else")).toBe("active");
+  });
+
+  it("requires the editable operational shape", () => {
+    const result = thingEditSchema.safeParse({ title: "Incomplete" });
+    expect(result.success).toBe(false);
   });
 });

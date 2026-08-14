@@ -28,6 +28,7 @@ export type Permission = (typeof permissionValues)[number];
 export type Role = "owner" | "assistant";
 
 export type ThingDate = {
+  id?: string;
   label: string;
   start: string;
   end?: string;
@@ -69,6 +70,8 @@ export type Thing = {
   id: string;
   title: string;
   summary: string;
+  ownerNextAction: string;
+  assistantNextAction: string;
   category: Category;
   status: ThingStatus;
   permission: Permission;
@@ -83,6 +86,7 @@ export type Thing = {
   options: Option[];
   notes: { id: string; author: "Jerry" | "Maria"; body: string; at: string }[];
   links: { id: string; title: string; url: string }[];
+  followUps: { id: string; waitingOn: string; date: string; channel?: string; note?: string; state: "drafted" | "attempted" }[];
   sections: { id: string; title: string; body: string }[];
 };
 
@@ -118,6 +122,7 @@ export type InboxItem = {
 };
 
 export type AppState = {
+  schemaVersion: 2;
   things: Thing[];
   approvals: Approval[];
   inbox: InboxItem[];
@@ -128,6 +133,67 @@ export const captureSchema = z.object({
   text: z.string().trim().min(2, "Add a little more detail first.").max(4000),
   type: z.enum(["text", "link", "voice", "photo", "file"]),
 });
+
+export const thingFilterValues = ["active", "needs-you", "moving", "waiting", "ready", "someday", "done"] as const;
+export type ThingFilter = (typeof thingFilterValues)[number];
+export const thingFilterSchema = z.enum(thingFilterValues);
+
+export const thingEditSchema = z.object({
+  title: z.string().trim().min(1, "A Thing needs a title.").max(120),
+  summary: z.string().trim().max(1200),
+  ownerNextAction: z.string().trim().max(240),
+  assistantNextAction: z.string().trim().max(240),
+  category: z.enum(categoryValues),
+  status: z.enum(statusValues),
+  permission: z.enum(permissionValues),
+  location: z.string().trim().max(180).optional(),
+  keepMoving: z.boolean(),
+  surpriseMe: z.boolean(),
+  date: z.object({
+    label: z.string().trim().min(1).max(100),
+    start: z.string().datetime({ offset: true }),
+    end: z.string().datetime({ offset: true }).optional(),
+    precision: z.enum(["exact", "range", "month", "unknown"]),
+    readiness: z.string().trim().max(240),
+    unresolved: z.number().int().min(0).max(999),
+  }).optional(),
+});
+
+export type ThingEditInput = z.infer<typeof thingEditSchema>;
+
+export const noteSchema = z.object({ thingId: z.string().min(1), body: z.string().trim().min(1).max(4000) });
+export const movementSchema = z.object({
+  thingId: z.string().min(1),
+  update: z.string().trim().min(2).max(500),
+  nextAction: z.string().trim().max(240).optional(),
+  status: z.enum(statusValues).optional(),
+});
+export const followUpSchema = z.object({
+  thingId: z.string().min(1), waitingOn: z.string().trim().min(1).max(120),
+  date: z.string().datetime({ offset: true }), channel: z.string().trim().max(60).optional(),
+  note: z.string().trim().max(500).optional(), state: z.enum(["drafted", "attempted"]),
+});
+export const linkSchema = z.object({ thingId: z.string().min(1), title: z.string().trim().min(1).max(160), url: z.url() });
+export const optionSchema = z.object({
+  thingId: z.string().min(1), name: z.string().trim().min(1).max(160), description: z.string().trim().max(600),
+  price: z.string().trim().max(40).optional(), source: z.union([z.url(), z.literal("")]).optional(),
+  recommendation: z.string().trim().max(500).optional(), tradeoff: z.string().trim().max(500).optional(),
+});
+export const approvalCreateSchema = z.object({
+  thingId: z.string().min(1), title: z.string().trim().min(2).max(180), recommendation: z.string().trim().min(2).max(600),
+  whyNow: z.string().trim().min(2).max(500), context: z.string().trim().max(600), actionLabel: z.string().trim().min(1).max(80),
+  meta: z.string().trim().max(180), permission: z.enum(["APPROVE", "YOU"]),
+});
+
+export function parseThingFilter(value?: string): ThingFilter {
+  return thingFilterSchema.catch("active").parse(value);
+}
+
+export function nextActionFor(thing: Thing, role: Role) {
+  if (thing.status === "Needs You" && thing.ownerNextAction) return thing.ownerNextAction;
+  if (role === "assistant" && thing.assistantNextAction) return thing.assistantNextAction;
+  return thing.assistantNextAction || thing.ownerNextAction || (thing.status === "Waiting" ? `Waiting on ${thing.waitingOn ?? "a response"}` : "No next move yet");
+}
 
 const transitions: Record<ThingStatus, ThingStatus[]> = {
   Inbox: ["Exploring", "Moving", "Someday"],

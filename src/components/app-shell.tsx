@@ -81,6 +81,6 @@ function ShellInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function AppShell({ children, role }: { children: React.ReactNode; role: Role }) {
-  return <AppProvider role={role}><ShellInner>{children}</ShellInner></AppProvider>;
+export function AppShell({ children, role, renderedAt }: { children: React.ReactNode; role: Role; renderedAt: string }) {
+  return <AppProvider role={role} renderedAt={renderedAt}><ShellInner>{children}</ShellInner></AppProvider>;
 }

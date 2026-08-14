@@ -1,6 +1,8 @@
 import { ThingDetail } from "@/components/thing-detail";
 
-export default async function ThingPage({ params }: { params: Promise<{ thingId: string }> }) {
+export default async function ThingPage({ params, searchParams }: { params: Promise<{ thingId: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const { thingId } = await params;
-  return <ThingDetail id={thingId} />;
+  const { returnTo } = await searchParams;
+  const safeReturnTo = returnTo?.startsWith("/things") ? returnTo : "/things";
+  return <ThingDetail id={thingId} returnTo={safeReturnTo} />;
 }

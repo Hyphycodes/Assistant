@@ -14,8 +14,8 @@ export function formatDateRange(start: string, end?: string, precision?: string)
   return `${formatDate(start)}–${new Intl.DateTimeFormat("en-US", { day: "numeric" }).format(new Date(end))}`;
 }
 
-export function daysUntil(value: string) {
-  const now = new Date();
+export function daysUntil(value: string, renderedAt: string) {
+  const now = new Date(renderedAt);
   const target = new Date(value);
   const days = Math.ceil((target.getTime() - now.getTime()) / 86_400_000);
   if (days === 0) return "Today";
@@ -24,8 +24,8 @@ export function daysUntil(value: string) {
   return `${days} days away`;
 }
 
-export function relativeMovement(value: string) {
-  const days = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 86_400_000));
+export function relativeMovement(value: string, renderedAt: string) {
+  const days = Math.max(0, Math.floor((new Date(renderedAt).getTime() - new Date(value).getTime()) / 86_400_000));
   if (days === 0) return "Moved today";
   if (days === 1) return "Moved yesterday";
   return `Moved ${days} days ago`;

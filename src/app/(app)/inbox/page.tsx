@@ -24,13 +24,14 @@ export default function InboxPage() {
   const [notice, setNotice] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
-  function submit(event: React.FormEvent) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     const raw = text || (fileName ? `${type === "voice" ? "Voice note" : type === "photo" ? "Photo" : "File"}: ${fileName}` : "");
     const parsed = captureSchema.safeParse({ text: raw, type });
     if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Add a thought first.");
-    capture(raw, type, fileName || undefined);
-    setText(""); setFileName(""); setError(""); setNotice("Saved to Inbox. Your original capture is safe.");
+    const result = await capture(raw, type, fileName || undefined);
+    if (!result.ok) return setError(result.message);
+    setText(""); setFileName(""); setError(""); setNotice(result.message);
   }
 
   const reviews = inbox.filter((item) => item.status === "needs_review");
@@ -65,9 +66,9 @@ export default function InboxPage() {
             <div className="proposal-badges"><span>{item.proposal.category}</span><StatusBadge status={item.proposal.status} /><PermissionBadge permission={item.proposal.permission} /></div>
             {item.proposal.extracted.length > 0 && <ul>{item.proposal.extracted.map((value) => <li key={value}><Check size={13} />{value}</li>)}</ul>}
             <div className="proposal-actions">
-              {item.proposal.relatedThingId ? <button className="button primary" onClick={() => acceptProposal(item.id, "attach")}>Attach to Camping <ArrowRight size={15} /></button> : <button className="button primary" onClick={() => acceptProposal(item.id, "create")}>Create Thing <ArrowRight size={15} /></button>}
+              {item.proposal.relatedThingId ? <button className="button primary" onClick={async () => setNotice((await acceptProposal(item.id, "attach")).message)}>Attach to Camping <ArrowRight size={15} /></button> : <button className="button primary" onClick={async () => setNotice((await acceptProposal(item.id, "create")).message)}>Create Thing <ArrowRight size={15} /></button>}
               <button className="button quiet" onClick={() => setNotice("Kept in Inbox. Nothing changed.")}>Keep in Inbox</button>
-              <button className="icon-button" onClick={() => dismissInbox(item.id)} aria-label="Dismiss proposal"><X size={17} /></button>
+              <button className="icon-button" onClick={async () => setNotice((await dismissInbox(item.id)).message)} aria-label="Dismiss proposal"><X size={17} /></button>
             </div>
           </div>}
         </article>)}</div> : <EmptyState title="Everything is reviewed." body="New captures will wait here with their original source intact." />}
