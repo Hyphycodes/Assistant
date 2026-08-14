@@ -39,7 +39,7 @@ test("Things keeps two calm views, deep links filters, and persists edits", asyn
   await expect(page.getByText(/decisions · .* unresolved · .* links/)).toHaveCount(0);
 
   await page.goto("/things/camping-red-oak");
-  await expect(page.getByRole("heading", { name: "Tent Setup" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Options" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("Owner next action").fill("Confirm the final campsite plan with Maria.");
@@ -105,6 +105,7 @@ test("advanced Thing capabilities stay preserved behind Manage", async ({ page }
   await expect(page.getByRole("heading", { name: "Sections & items" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Subthings & relationships" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Tent Setup" })).toBeHidden();
   await page.getByRole("main").getByLabel("More Thing actions").click();
   await page.getByRole("button", { name: "Manage", exact: true }).click();
 
@@ -129,18 +130,19 @@ test("advanced Thing capabilities stay preserved behind Manage", async ({ page }
   await expect(manage.getByRole("link", { name: /Tent Setup/ })).toBeVisible();
 });
 
-test("product lifecycle and management stay hidden until requested", async ({ page }) => {
+test("option ordering and management stay hidden until requested", async ({ page }) => {
   await page.getByRole("button", { name: "Continue as Jerry" }).click();
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
 
-  const product = page.locator(".calm-product-card").first();
-  await expect(product.getByRole("button", { name: "Approve" })).toBeVisible();
-  await expect(product.getByRole("button", { name: "Pass" })).toBeVisible();
-  await expect(product.getByRole("button", { name: "Track order" })).toHaveCount(0);
-  await product.locator("details > summary").click();
-  await expect(product.getByRole("button", { name: "Edit" })).toBeVisible();
-  await expect(product.getByRole("button", { name: "Track order" })).toBeVisible();
+  const option = page.locator(".option-entry", { has: page.locator(".option-entry-more") }).first();
+  await expect(option.getByRole("button", { name: "Approve" })).toBeVisible();
+  await expect(option.getByRole("button", { name: "Pass" })).toBeVisible();
+  await expect(option.getByRole("button", { name: "Mark as ordered" })).toHaveCount(0);
+  await expect(page.locator(".option-entry select")).toHaveCount(0);
+  await option.locator("details > summary").click();
+  await expect(option.getByRole("button", { name: "Edit" })).toBeVisible();
+  await expect(option.getByRole("button", { name: "Mark as ordered" })).toBeVisible();
 });
 
 test("mobile detail keeps the work surface visible and management collapsed", async ({ page }, testInfo) => {
@@ -149,8 +151,8 @@ test("mobile detail keeps the work surface visible and management collapsed", as
   await page.waitForURL("/");
   await page.goto("/things/camping-red-oak");
 
-  await expect(page.getByRole("heading", { name: "Tent Setup" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Products" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Options" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Notes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Custom fields" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Capture" })).toBeVisible();
 });
